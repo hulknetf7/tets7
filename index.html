@@ -3,121 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shaka Player - Star Sports 1 HD</title>
+    <title>Shaka Player - Fix</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@4.7.11/dist/controls.css">
     <style>
-        body { margin: 0; background: #000; font-family: sans-serif; }
-        .container { width: 100%; height: 100vh; display: flex; justify-content: center; align-items: center; }
-        #video-container { width: 100%; max-width: 1000px; }
+        body { margin: 0; background: #000; overflow: hidden; }
+        #video-container { width: 100vw; height: 100vh; background: #000; }
         video { width: 100%; height: 100%; }
-        
-        /* Floating "Video Pro" Button in Player */
         #pro-launcher {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 10;
-            background: rgba(0, 123, 255, 0.7);
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 12px;
+            position: absolute; top: 15px; left: 15px; z-index: 100;
+            background: #007bff; color: white; border: none;
+            padding: 10px; border-radius: 5px; cursor: pointer;
         }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div id="video-container" shaka-controls-container>
-        <button id="pro-launcher">Video Pro Tools</button>
-        <video id="video" autoplay></video>
-    </div>
+<div id="video-container" shaka-controls-container>
+    <button id="pro-launcher">PRO Tools</button>
+    <video id="video" autoplay crossorigin="anonymous"></video>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.7.11/dist/shaka-player.ui.js"></script>
 
 <script>
-// --- 1. Shaka Player Setup ---
+// AGAR YE LINK PURANA HAI TO BLACK SCREEN HI DIKHEGI
+// NAYA LINK DALNA JARURI HAI
 const manifestUri = 'https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_HD1_BTS/output/index.mpd?__hdnea__=st=1774937870~exp=1775024270~acl=/*~hmac=a5156ff146747037632d3461c277c16755bf24d805f32ca2c97d4e744563e15a';
 
-async function initApp() {
-    shaka.polyfill.installAll();
-    if (!shaka.Player.isBrowserSupported()) {
-        console.error('Browser not supported!');
-        return;
-    }
-
+async function init() {
     const video = document.getElementById('video');
     const videoContainer = document.getElementById('video-container');
     const player = new shaka.Player(video);
-    
-    // Initialize UI
     const ui = new shaka.ui.Overlay(player, videoContainer, video);
-    const config = {
+
+    ui.configure({
         'controlPanelElements': ['play_pause', 'rewind', 'fast_forward', 'time_and_duration', 'spacer', 'quality', 'fullscreen'],
         'addFastForwardButton': true,
         'addRewindButton': true
-    };
-    ui.configure(config);
+    });
 
-    // --- 2. Configure DRM (ClearKey) ---
     player.configure({
         drm: {
             clearKeys: {
                 '965dc2ddb1d85138ad787999a7f30ca5': '859695076e67fe961836b564db6d689c'
             }
         },
+        manifest: {
+            dash: {
+                ignoreMinBufferTime: true
+            }
+        },
         network: {
-            // Set the User Agent via request filter
             requestFilter: (type, request) => {
-                if (type == shaka.net.NetworkingEngine.RequestType.MANIFEST || type == shaka.net.NetworkingEngine.RequestType.SEGMENT) {
-                    request.headers['User-Agent'] = '@allinone_reborn';
-                }
+                // User Agent set kar rahe hain
+                request.headers['User-Agent'] = '@allinone_reborn';
+                
+                // Agar stream block ho rahi hai toh CORS Proxy use karein
+                // request.uris[0] = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(request.uris[0]);
             }
         }
     });
 
     try {
         await player.load(manifestUri);
-        console.log('Video loaded successfully!');
     } catch (e) {
-        console.error('Error loading video', e);
+        console.error('Playback Error:', e);
+        alert('Stream Error: Link expire ho chuka hai ya CORS issue hai.');
     }
 }
 
-// --- 3. Integration of Video Pro + Smooth Script ---
-document.getElementById('pro-launcher').addEventListener('click', function() {
-    var id='v-pro-smooth';
-    if(document.getElementById(id)){document.getElementById(id).remove();return;}
+// Video Pro Tools Script (Integrated)
+document.getElementById('pro-launcher').onclick = function() {
+    if(document.getElementById('v-pro-smooth')){document.getElementById('v-pro-smooth').remove();return;}
     var p=document.createElement('div');
-    p.id=id;
-    p.style="position:fixed;top:60px;left:20px;z-index:1000000;background:rgba(15,15,15,0.95);color:#fff;padding:15px;border-radius:12px;border:2px solid #007bff;width:230px;font-family:sans-serif;box-shadow:0 10px 30px rgba(0,0,0,0.8);";
-    var html='<div style="text-align:center;font-weight:bold;color:#007bff;margin-bottom:15px;border-bottom:1px solid #333;padding-bottom:5px">Video Pro + Smooth</div>';
-    function sldr(label,id,min,max,val,step){return '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>'+label+'</span><span id="'+id+'V">'+val+'</span></div><input type="range" id="'+id+'" min="'+min+'" max="'+max+'" step="'+step+'" value="'+val+'" style="width:100%;cursor:pointer"></div>';}
-    html+=sldr('Contrast','cIn',0.5,3,1,0.1)+sldr('Saturate','sIn',0.5,3,1,0.1)+sldr('Brightness','bIn',0.5,2,1,0.1)+sldr('Smoothness (Denoise)','smIn',0,2,0,0.1);
-    html+='<div style="display:flex;gap:5px;margin-top:10px"><button id="rBtn" style="flex:1;background:#444;color:#fff;border:none;padding:8px;border-radius:6px;cursor:pointer">Reset</button><button id="xBtn" style="flex:1;background:#d32f2f;color:#fff;border:none;padding:8px;border-radius:6px;cursor:pointer">Close</button></div>';
-    p.innerHTML=html;
+    p.id='v-pro-smooth';
+    p.style="position:fixed;top:70px;left:20px;z-index:1000000;background:rgba(15,15,15,0.95);color:#fff;padding:15px;border-radius:12px;border:2px solid #007bff;width:230px;box-shadow:0 10px 30px #000;";
+    p.innerHTML = '<div style="text-align:center;font-weight:bold;color:#007bff;margin-bottom:15px">Video Pro + Smooth</div>' +
+        sldr('Contrast','cIn',0.5,3,1,0.1) + sldr('Saturate','sIn',0.5,3,1,0.1) +
+        sldr('Brightness','bIn',0.5,2,1,0.1) + sldr('Smoothness','smIn',0,2,0,0.1) +
+        '<div style="display:flex;gap:5px;margin-top:10px"><button id="rBtn" style="flex:1;background:#444;color:#fff;border:none;padding:8px;border-radius:6px;cursor:pointer">Reset</button><button id="xBtn" style="flex:1;background:#d32f2f;color:#fff;border:none;padding:8px;border-radius:6px;cursor:pointer">Close</button></div>';
     document.body.appendChild(p);
+
+    function sldr(l,i,min,max,v,s){return '<div style="margin-bottom:10px;font-size:12px"><div style="display:flex;justify-content:space-between"><span>'+l+'</span><span id="'+i+'V">'+v+'</span></div><input type="range" id="'+i+'" min="'+min+'" max="'+max+'" step="'+s+'" value="'+v+'" style="width:100%"></div>';}
     
     function up(){
-        var c=document.getElementById('cIn').value,s=document.getElementById('sIn').value,b=document.getElementById('bIn').value,sm=document.getElementById('smIn').value;
-        document.getElementById('cInV').innerText=c;document.getElementById('sInV').innerText=s;document.getElementById('bInV').innerText=b;document.getElementById('smInV').innerText=sm;
-        var f="contrast("+c+") saturate("+s+") brightness("+b+") blur("+sm+"px)";
-        document.querySelectorAll('video').forEach(v=>v.style.filter=f);
+        var c=document.getElementById('cIn').value, s=document.getElementById('sIn').value, b=document.getElementById('bIn').value, sm=document.getElementById('smIn').value;
+        document.getElementById('cInV').innerText=c; document.getElementById('sInV').innerText=s; document.getElementById('bInV').innerText=b; document.getElementById('smInV').innerText=sm;
+        video.style.filter = `contrast(${c}) saturate(${s}) brightness(${b}) blur(${sm}px)`;
     }
-    document.getElementById('cIn').oninput=up;
-    document.getElementById('sIn').oninput=up;
-    document.getElementById('bIn').oninput=up;
-    document.getElementById('smIn').oninput=up;
-    document.getElementById('rBtn').onclick=function(){
-        document.getElementById('cIn').value=1;document.getElementById('sIn').value=1;document.getElementById('bIn').value=1;document.getElementById('smIn').value=0;up();
-    };
-    document.getElementById('xBtn').onclick=function(){p.remove();};
-});
+    ['cIn','sIn','bIn','smIn'].forEach(id => document.getElementById(id).oninput = up);
+    document.getElementById('rBtn').onclick = () => { ['cIn','sIn','bIn'].forEach(i=>document.getElementById(i).value=1); document.getElementById('smIn').value=0; up(); };
+    document.getElementById('xBtn').onclick = () => p.remove();
+};
 
-document.addEventListener('shaka-ui-loaded', initApp);
+document.addEventListener('shaka-ui-loaded', init);
 </script>
 </body>
 </html>

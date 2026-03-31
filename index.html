@@ -1,2571 +1,344 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
-    <title>Shaka Player</title>
-	 <meta name="referrer" content="no-referrer">
-	 <meta charset="UTF-8">
-	<meta name="color-scheme" content="light dark">
-	 <meta name="theme-color" content="#000">
-	    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  
-   
-	
-	<script>
-		  // Helper function polyfill for v 4.16.14 update
-		  //Dont remove this as this will stuck shaka player for newer versions as some browser still dont support Map js
-		  //https://github.com/shaka-project/shaka-player/releases/tag/v4.16.14  Use Map.getOrInsert/getOrInsertComputed native methods (#9546) (66178c8)
-		  
-if (!Map.prototype.getOrInsertComputed) {
-  Map.prototype.getOrInsertComputed = function (key, compute) {
-    if (!this.has(key)) {
-      const value = compute();
-      this.set(key, value);
-      return value;
-    }
-    return this.get(key);
-  };
-}
+    <title>Shaka Player with M3U8 Playlist</title>
+    <meta name="referrer" content="no-referrer">
+    <meta charset="UTF-8">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#000">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    
+    <script>
+        // Polyfills
+        if (!Map.prototype.getOrInsertComputed) {
+            Map.prototype.getOrInsertComputed = function (key, compute) {
+                if (!this.has(key)) {
+                    const value = compute();
+                    this.set(key, value);
+                    return value;
+                }
+                return this.get(key);
+            };
+        }
+        if (!Map.prototype.getOrInsert) {
+            Map.prototype.getOrInsert = function (key, value) {
+                if (!this.has(key)) {
+                    this.set(key, value);
+                    return value;
+                }
+                return this.get(key);
+            };
+        }
+    </script>
 
-if (!Map.prototype.getOrInsert) {
-  Map.prototype.getOrInsert = function (key, value) {
-    if (!this.has(key)) {
-      this.set(key, value);
-      return value;
-    }
-    return this.get(key);
-  };
-}
-</script>
-
-   <script src="https://cdn.jsdelivr.net/npm/shaka-player@5.0.4/dist/shaka-player.ui.min.js" crossorigin="anonymous"></script>
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@5.0.4/dist/controls.min.css">
-	
-	
-	
-	
-	
-	
-	<style type="text/css">
-   @font-face {
-    font-family: Roboto, sans-serif, 'Noto Sans', Arial, sans-serif,   TengwarTelcontar;
-   
-}
-
-		   * {
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-}
-
- body {
-        margin: 0;
-        padding: 0;
-        
-	    background-color: #000;
-        color: white;
-        font-family: Arial, sans-serif;
-        overflow: hidden;
-	 height: 100dvh;
-	 width: 100dvw;
-    }
-
-#app {
-  width: 100dvw;
-  height: 100dvh;
-  display: flex;
-   flex-direction: column; 
-  background: #000;
-  overflow: hidden;
-}
-
-#shakaplayer {
-		   position: relative;
-        background-color: black;
-        width: 100dvw;
-        height: 100dvh;
-    overflow: hidden;
-}
-
-.shaka-video-container {
-		   position: relative;
-        background-color: black;
-        width: 100%;
-        height: 100%;
-    overflow: hidden;
-}
-
-.shaka-video {
-            width: 100%;
-            height: 100%;
-			overflow: hidden;
+    <script src="https://cdn.jsdelivr.net/npm/shaka-player@5.0.4/dist/shaka-player.ui.min.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@5.0.4/dist/controls.min.css">
+    
+    <style type="text/css">
+        * {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
         }
 
-.shaka-video {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    
-}
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            height: 100dvh;
+            width: 100dvw;
+        }
 
+        #app {
+            width: 100dvw;
+            height: 100dvh;
+            display: flex;
+            flex-direction: row; /* Changed to row for side-by-side layout */
+            background: #000;
+            overflow: hidden;
+        }
 
+        /* Channel List Sidebar */
+        #channel-list {
+            width: 250px;
+            height: 100%;
+            background: #111;
+            overflow-y: auto;
+            border-right: 1px solid #222;
+            z-index: 10;
+        }
 
+        .channel-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #222;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
-/* === Stream Stats  === */
-.shaka-stream-stats {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 30;
+        .channel-item:hover {
+            background: #252525;
+        }
 
-  
-  
-  
- background: rgba(0, 0, 0, 0.28);
-  text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.9),
-    0 0 1px rgba(0, 0, 0, 0.8);
+        .channel-item.active {
+            background: #e50914;
+            font-weight: bold;
+        }
 
-  border-radius: 6px;
-  padding: 6px 8px;
+        /* Player Container */
+        #shakaplayer {
+            position: relative;
+            background-color: black;
+            flex-grow: 1; /* Takes remaining width */
+            height: 100dvh;
+            overflow: hidden;
+        }
 
-  
-  backdrop-filter: none;
-  box-shadow: none;
+        .shaka-video-container {
+            position: relative;
+            background-color: black;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
 
-  
-  font-family: 'Inter', 'Noto Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.25;
-  letter-spacing: 0.25px;
+        .shaka-video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
 
-  
-  color: rgba(255, 255, 255, 0.95);
+        /* Stream Stats Style */
+        .shaka-stream-stats {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 30;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-family: system-ui, sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.95);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.35s ease;
+        }
 
-  pointer-events: none;
-  user-select: none;
-}
+        .shaka-stream-stats.visible { opacity: 1; }
+        .shaka-stream-stats .stat-data { color: rgba(255, 235, 180, 0.9); font-weight: 700; }
+        .shaka-stream-stats .stat-res { color: rgba(180, 220, 255, 0.95); font-weight: 700; }
+        .shaka-stream-stats .stat-bw { color: rgba(180, 255, 210, 0.95); font-weight: 700; }
 
-/* Data usage line  */
-.shaka-stream-stats .stat-data {
-  color: rgba(255, 235, 180, 0.9);
- 
-
-  font-weight: 700;
-}
-/* Resolution / FPS */
-.shaka-stream-stats .stat-res {
-  color: rgba(180, 220, 255, 0.95);
-  
-
-  font-weight: 700;
-}
-
-/* Bitrate / Quality */
-.shaka-stream-stats .stat-bw {
-  color: rgba(180, 255, 210, 0.95);
-   
-  font-weight: 700;
-}
-/* Hide control-bar slot (still needed for creation) */
-.shaka-bottom-controls .shaka-stream-stats {
-  display: none;
-}
-
-/* Mobile refinement */
-@media (max-width: 480px) {
-  .shaka-stream-stats {
-    top: 8px;
-    left: 8px;
-    padding: 5px 7px;
-    font-size: 11px;
-  }
-}
-
-
-.shaka-stream-stats {
-  opacity: 0;
-  transition: opacity 0.35s ease;
-}
-
-.shaka-stream-stats.visible {
-  opacity: 1;
-}
-
-/* Hide control-bar slot (still needed for creation) */
-.shaka-bottom-controls .shaka-stream-stats {
-  display: none;
-}
- 
-
-
-
-
-
-
-
-.shaka-video-container .shaka-ui-icon,
-.shaka-controls-button-panel>.shaka-fullscreen-button .shaka-ui-icon ,
-.shaka-controls-button-panel > .shaka-overflow-menu-button .shaka-ui-icon {
-   
-    font-size: 35px !important;
-}
-
-	   .shaka-controls-button-panel>* {
-    color: #fff;
-    height: 35px;
-	
-    line-height: .5;
-    margin: 1px;
-    padding: 0 5px;
-	 padding: 0 0px;
-    background: 0 0;
-    border: 0;
-    cursor: pointer
-}
-
-	
-
-@media (max-width: 480px) {
-  .shaka-video-container .shaka-ui-icon,
-.shaka-controls-button-panel>.shaka-fullscreen-button .shaka-ui-icon ,
-.shaka-controls-button-panel > .shaka-overflow-menu-button .shaka-ui-icon {
-        font-size: 32px; !important;
-	    
-    }
-
-	.shaka-spacer {
-   max-width: 100px;
-}
-
-	 .shaka-controls-button-panel>* {
-   
-	width:  38px;
-   
-}
-}
-
-	   @media (max-width: 400px) {
-   .shaka-video-container .shaka-ui-icon,
-.shaka-controls-button-panel>.shaka-fullscreen-button .shaka-ui-icon ,
-.shaka-controls-button-panel > .shaka-overflow-menu-button .shaka-ui-icon {
-        font-size: 25px; !important;
-	    
-    }
-
-	.shaka-spacer {
-   max-width: 100px;
-}
-
-	 .shaka-controls-button-panel>* {
-   
-	width:  32px;
-   
-}
-}
-	   
-	
-
-.shaka-scrim-container {
-    margin: 0;
-    width: 100%;
-    height: 100%;
-    flex-shrink: 1;
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    opacity: 0;
-    transition: opacity cubic-bezier(.4, 0, .6, 1) .6s;
-		   
-	 /*background: linear-gradient(rgba(0,0,0,0) 0,rgba(0,0,0,.5) 100%)*/
-    background: linear-gradient(to top,#000 0,transparent 15%)
-}
-
-	
-
-	   .shaka-current-time[disabled] {
-    background-color: transparent;
-	width:  42px;
-    font-size: 14px;
-    color: white;
-    cursor: default;
-   white-space: normal; /* Allow text wrapping */
-    word-break: break-word; /* Break word if necessary */
-	flex-shrink: 1;
-	line-height: .6;
-}
-
-.shaka-ad-info[disabled] {
-    display: none !important;
-}
-
-.shaka-overflow-playback-rate-mark { /* show quality menu always */
-  display: none !important;
-
-}
-.shaka-bottom-controls {
-    width: 96%;
-    padding: 0;
-    padding-bottom: 1%;
-	
-    z-index: 1;
-
-	
-	
-}
-
- 
-
-.shaka-seek-bar-container { 
-    opacity: 0;
-	top: -10px;
-    transition: opacity cubic-bezier(.4, 0, .6, 1) .6s
-}
-
-		 .shaka-controls-button-panel > .shaka-volume-bar-container  {
-    height: 4px;
-}
-	
-</style>
-
+        .shaka-bottom-controls { width: 96%; padding-bottom: 1%; z-index: 1; }
+        
+        /* Mobile refinement */
+        @media (max-width: 768px) {
+            #app { flex-direction: column-reverse; }
+            #channel-list { width: 100%; height: 30dvh; border-right: none; border-top: 1px solid #222; }
+            #shakaplayer { height: 70dvh; }
+        }
+    </style>
 </head>
 <body>
 
 <div id="app">
+    <div id="channel-list">
+        <div style="padding: 15px; font-weight: bold; border-bottom: 1px solid #333; color: #aaa;">Live Channels</div>
+        <div id="channels-container">Loading playlist...</div>
+    </div>
 
-   
-
-		<div id="shakaplayer">
-    <div class="shaka-video-container">
-        <video autoplay id="video" class="shaka-video"></video>
+    <div id="shakaplayer">
+        <div class="shaka-video-container">
+            <video autoplay id="video" class="shaka-video"></video>
+        </div>
     </div>
 </div>
-</div>
-		
-	
-	
-	 <script>
-	 
-	
-     let player; 
-let ui; 
 
+<script>
+    let player; 
+    let ui; 
+    const playlistUrl = "https://allinonereborn.online/jiotv-m3u/playlist1221.m3u8";
 
-
-
-
-
-// Initialize Shaka Player
-async function initializePlayer() {
-	
-	
-	
-    const videoContainer = document.querySelector('.shaka-video-container');
-    const videoElement = document.getElementById('video');
-    
-   
-
-  const streamInfo = {
-    streamUrl: "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd",
-    clearKeys: {
-        "065051b99bf5cf8d9a3bde5cbde6aaf9": "214bd176832872339ce184338320f9a2"
-    },
-    streamPoster: "https://img10.hotstar.com/image/upload/f_auto,q_90,w_256/sources/r1/cms/prod/8704/1764056908704-a"
-};
-	
-	
-	
-    
-    
-
-    // Set poster image
-    videoElement.poster = streamInfo.streamPoster;
-
-    // Video settings
-    videoElement.muted = true;
-    videoElement.autoplay = true;
-    videoElement.controls = false;
-
-   
-
-
-  
-
-
-    // Create Shaka Player instance
-    player = new shaka.Player();
-
-    // UI Configuration
-    const uiConfig = {
-   
-   
-	 // NEW (v5.0.0)
-documentPictureInPicture: {
-    enabled: false,  // Set to true if you want it
-    preferInitialWindowPlacement: false,
-    disallowReturnToOpener: false
-},
-   
-	 
-	
-	
-	
-	
-	 trackLabelFormat: shaka.ui.Overlay.TrackLabelFormat.LANGUAGE,
-      textTrackLabelFormat: shaka.ui.Overlay.TrackLabelFormat.LANGUAGE,
-      fadeDelay: 0,
-	  closeMenusDelay: 3,
-      doubleClickForFullscreen: false,
-   
-      enableKeyboardPlaybackControls: true,
-      enableFullscreenOnRotation: false,
-      forceLandscapeOnFullscreen: true,
-      enableTooltips: false,
-      keyboardSeekDistance: 5,
-      keyboardLargeSeekDistance: 60,
-      //fullScreenElement: this.videoContainer_,
-      //preferDocumentPictureInPicture: false,
-      showAudioChannelCountVariants: true,
-      seekOnTaps: navigator.maxTouchPoints > 0,
-	  seekOnTaps: false,  // Disable seeking on tap
-      tapSeekDistance: 10,
-      refreshTickInSeconds: 0.125,
-      displayInVrMode: false,
-      defaultVrProjectionMode: 'equirectangular',
-      //setupMediaSession: true,
-      preferVideoFullScreenInVisionOS: false,
-      showAudioCodec: true,
-      showVideoCodec: true,
-	   addSeekBar: true,
-      //addBigPlayButton: false,
-      customContextMenu: true,
-      castReceiverAppId: '',
-      castAndroidReceiverCompatible: false,
-      clearBufferOnQualityChange: false,
-      showUnbufferedStart: false,
-	
-	
-   // addBigPlayButtonInPausedState: true,
-    controlPanelElements: [
-      'time_and_duration',
-      'mute',
-	    'volume',
-      
-	  'skip_backward_5',
-	  'skip_forward_5',
-		
-		'stream_stats',
-      'play_pause',
-      'spacer',
-     
-	    'quality',
-	    'overflow_menu',
-		//'playback_rate',
-      
-	
-	    
-      'picture_in_picture',
-      'fullscreen',   
-      
-    ],
-	
-	topControlPanelElements: [
-	//'playback_rate',
-   //'spacer',         // Pushes everything to the right
-   //'stream_stats'    // Your custom stats element
-],
-    overflowMenuButtons: [
-     
-      
-      'picture_in_picture',
-      
-      'cast',
-       'loop',
-      'language',
-      'playback_rate',
-      'captions',
-      //'save_frame',
-      'save_video_frame',
-     
-	 'statistics',
-	     'quality'
-    ],
-    contextMenuElements: [
-	  'statistics',
-	    'picture_in_picture',
-	    'save_video_frame',
-      'mute'
-	//'loop'  
-      
-    ],
-   
-   
-   playbackRates: [ 0.2, 0.5,  1,    1.5,  2,  3],
-    fastForwardRates: [1],
-    rewindRates: [1],
-	
-	volumeBarColors: {
-        base: 'rgba(255, 255, 255, 0.54)',
-        level: 'rgb(255, 255, 255)',
-      },
-	  
-	  qualityMarks: {
-		 
-        '720': 'HD',
-        '1080': 'FHD',
-        '1440': '2K',
-        '2160': '4K',
-        '4320': '8K',
-      },
-	  
-   seekBarColors: {
-      base: 'rgba(255, 255, 255, 0.3)',
-      //buffered: 'rgba(255, 255, 255, 0.54)',
-	    buffered: 'rgba(63, 133, 244, 0.65)',
-	    
-      //played: 'rgb(255, 0, 51)'
-	    played: 'rgb(229, 9, 31)'
-    }
-  };
-  
-  
-
-
-    // Initialize UI
-    ui = new shaka.ui.Overlay(player, videoContainer, videoElement);
-	//to save globally
-	window.shakaControls = ui.getControls();
-
-	
-	
-    await player.attach(videoElement);
-    ui.configure(uiConfig);
-    ui.getControls();
-
-	
-
-    // DRM Configuration
-    player.configure({
-		
-		manifest: {
-		
-   dash: {
-      
-		 ignoreMinBufferTime: true, // to fast play of prime links otherwise it will load after 30sec
-         },
-          },
-  
-     
-		
-    
-	
-        drm: {
-            clearKeys: streamInfo.clearKeys
-        }
-    });
-
-   
-	
-
-    // Load the stream
-   // Load the stream
-    try {
-        console.log(`Loading stream: ${streamInfo.streamUrl}`);
+    // Initialize Shaka Player
+    async function initializePlayer() {
+        const videoContainer = document.querySelector('.shaka-video-container');
+        const videoElement = document.getElementById('video');
         
-       
-        await player.load(streamInfo.streamUrl);
-        console.log('Stream loaded successfully.');
+        videoElement.muted = true;
+        videoElement.autoplay = true;
 
-      
+        player = new shaka.Player();
 
-    } catch (error) {
-        console.error("Error loading stream:", error);
-    }
-	}
-	
-	
-		
-	
+        const uiConfig = {
+            fadeDelay: 0,
+            closeMenusDelay: 3,
+            forceLandscapeOnFullscreen: true,
+            controlPanelElements: [
+                'time_and_duration', 'mute', 'volume', 'skip_backward_5', 
+                'skip_forward_5', 'stream_stats', 'play_pause', 'spacer', 
+                'quality', 'overflow_menu', 'picture_in_picture', 'fullscreen'
+            ],
+            overflowMenuButtons: [
+                'picture_in_picture', 'cast', 'loop', 'language', 
+                'playback_rate', 'captions', 'save_video_frame', 'statistics', 'quality'
+            ],
+            seekBarColors: {
+                base: 'rgba(255, 255, 255, 0.3)',
+                buffered: 'rgba(63, 133, 244, 0.65)',
+                played: 'rgb(229, 9, 31)'
+            }
+        };
 
+        ui = new shaka.ui.Overlay(player, videoContainer, videoElement);
+        window.shakaControls = ui.getControls();
 
+        await player.attach(videoElement);
+        ui.configure(uiConfig);
 
+        player.configure({
+            manifest: { dash: { ignoreMinBufferTime: true } }
+        });
 
-
-	
-
-
-
-//creating new button for control paner +5sec -5sec
-	// Custom Skip Forward Button (+5 seconds)
-class SkipForwardButton extends shaka.ui.Element {
-  constructor(parent, controls) {
-    super(parent, controls);
-    
-    // Create the button element
-    this.button_ = document.createElement('button');
-    this.button_.className = 'shaka-skip-forward-button shaka-tooltip';
-    this.button_.setAttribute('aria-label', 'Skip forward 5 seconds');
-     this.button_.innerHTML = `
-     <svg class="shaka-ui-icon" aria-hidden="true" viewBox="0 -960 960 960">
-    <path d="M480-80q-75 0-140.5-28.5t-114-77q-48.5-48.5-77-114T120-440q0-75 28.5-140.5t77-114q48.5-48.5 114-77T480-800h6l-62-62 56-58 160 160-160 160-56-58 62-62h-6q-117 0-198.5 81.5T200-440q0 117 81.5 198.5T480-160q117 0 198.5-81.5T760-440h80q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-80ZM380-320v-60h120v-40H380v-140h180v60H440v40h80q17 0 28.5 11.5T560-420v60q0 17-11.5 28.5T520-320H380Z"/>
-  </svg>
-`;
-    
-    this.parent.appendChild(this.button_);
-    
-    // Listen for clicks
-    this.eventManager.listen(this.button_, 'click', () => {
-      const video = this.video;
-      if (video) {
-        video.currentTime = Math.min(video.currentTime + 5, video.duration);
-      }
-    });
-  }
-}
-
-// Factory for Skip Forward Button
-SkipForwardButton.Factory = class {
-  create(rootElement, controls) {
-    return new SkipForwardButton(rootElement, controls);
-  }
-};
-
-// Custom Skip Backward Button (-5 seconds)
-class SkipBackwardButton extends shaka.ui.Element {
-  constructor(parent, controls) {
-    super(parent, controls);
-    
-    // Create the button element
-    this.button_ = document.createElement('button');
-    this.button_.className = 'shaka-skip-backward-button shaka-tooltip';
-    this.button_.setAttribute('aria-label', 'Skip backward 5 seconds');
-     this.button_.innerHTML = `
-     <svg class="shaka-ui-icon" aria-hidden="true" viewBox="0 -960 960 960">
-    <path d="M480-80q-75 0-140.5-28.5t-114-77q-48.5-48.5-77-114T120-440h80q0 117 81.5 198.5T480-160q117 0 198.5-81.5T760-440q0-117-81.5-198.5T480-720h-6l62 62-56 58-160-160 160-160 56 58-62 62h6q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-440q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-80ZM380-320v-60h120v-40H380v-140h180v60H440v40h80q17 0 28.5 11.5T560-420v60q0 17-11.5 28.5T520-320H380Z"/>
-  </svg>
-`;
-    
-    this.parent.appendChild(this.button_);
-    
-    // Listen for clicks
-    this.eventManager.listen(this.button_, 'click', () => {
-      const video = this.video;
-      if (video) {
-        video.currentTime = Math.max(video.currentTime - 5, 0);
-      }
-    });
-  }
-}
-
-// Factory for Skip Backward Button
-SkipBackwardButton.Factory = class {
-  create(rootElement, controls) {
-    return new SkipBackwardButton(rootElement, controls);
-  }
-};
-
-// Register the custom elements with Shaka UI Controls
-shaka.ui.Controls.registerElement('skip_forward_5', new SkipForwardButton.Factory());
-shaka.ui.Controls.registerElement('skip_backward_5', new SkipBackwardButton.Factory());
-
-
-
-
-
-// add element to show quality resolution and data usage
-
-// ✅ SESSION-LEVEL SHAKA DATA USAGE (MB) to track Data usage
-window.shakaSessionUsageMB = 00;
-
-class StreamStatsElement extends shaka.ui.Element {
-  constructor(parent, controls) {
-    super(parent, controls);
-
-    this.player = controls.getPlayer();
-
-    // Create container
-    this.container = document.createElement('div');
-    this.container.className = 'shaka-stream-stats';
-    this.container.innerHTML = '--';
-	//parent.appendChild(this.container);
-
-    controls.getControlsContainer().appendChild(this.container);
-
-// --- AUTO-HIDE WITH SHAKA CONTROLS ---
-  const controlsContainer = controls.getControlsContainer();
-
-  this.onControlsVisibilityChange = () => {
-    const shown = controlsContainer.getAttribute('shown') === 'true';
-    this.container.classList.toggle('visible', shown);
-  };
-
-  this.visibilityObserver = new MutationObserver(
-    this.onControlsVisibilityChange
-  );
-
-  this.visibilityObserver.observe(controlsContainer, {
-    attributes: true,
-    attributeFilter: ['shown']
-  });
-
-  this.onControlsVisibilityChange();
-  // ------------------------------------
-
-
-    // Data tracking
-    this.lastBytes = 0;
-    //this.totalMB = 0;
-	
-	
-this.totalMB = window.shakaSessionUsageMB || 0;
-
-    // Bind update
-    this.update = this.update.bind(this);
-
-    // Listen to quality changes
-    this.player.addEventListener('variantchanged', this.update);
-    this.player.addEventListener('adaptation', this.update);
-
-    // Periodic update (data usage grows over time)
-    this.interval = setInterval(this.update, 1000);
-
-    // Initial render
-    this.update();
-  }
-
-  update() {
-    const tracks = this.player.getVariantTracks();
-    const active = tracks.find(t => t.active);
-    const stats = this.player.getStats();
-
-    // ---------- LINE 1: RESOLUTION (+ FPS) ----------
-    let line1 = '';
-    if (active?.height) {
-      const fps = active.frameRate ? Math.round(active.frameRate) : '';
-      line1 = fps ? `${active.height}p${fps}` : `${active.height}p`;
+        // Load Playlist after player setup
+        loadM3U8Playlist();
     }
 
-    // ---------- LINE 2: BITRATE (kbps) ----------
-    let line2 = '';
-    const bw = active?.bandwidth || stats?.estimatedBandwidth;
-    if (typeof bw === 'number' && bw > 0) {
-      line2 = `${Math.round(bw / 1000)}kbps`;
+    // Function to parse M3U8 and create channel list
+    async function loadM3U8Playlist() {
+        const container = document.getElementById('channels-container');
+        try {
+            const response = await fetch(playlistUrl);
+            if (!response.ok) throw new Error("Network response was not ok");
+            const data = await response.text();
+            
+            const lines = data.split('\n');
+            container.innerHTML = ''; // Clear loading text
+            
+            let currentChannelName = '';
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                // Extract Channel Name
+                if (line.startsWith('#EXTINF:')) {
+                    const nameMatch = line.match(/,(.+)$/);
+                    currentChannelName = nameMatch ? nameMatch[1] : 'Unknown Channel';
+                } 
+                // Extract URL (usually the line after #EXTINF)
+                else if (line.startsWith('http')) {
+                    const streamUrl = line;
+                    createChannelButton(currentChannelName, streamUrl);
+                }
+            }
+        } catch (error) {
+            console.error("Error loading M3U8:", error);
+            container.innerHTML = '<div style="padding:15px; color:red;">Failed to load playlist.</div>';
+        }
     }
 
-    // ---------- LINE 3: DATA USED (MB) ----------
-    let bytes = 0;
-
-    // Use the stat that actually updates in your setup
-    if (typeof stats?.bytesDownloaded === 'number') {
-      bytes = stats.bytesDownloaded;
-    } else if (typeof stats?.totalBytesTransferred === 'number') {
-      bytes = stats.totalBytesTransferred;
+    function createChannelButton(name, url) {
+        const container = document.getElementById('channels-container');
+        const div = document.createElement('div');
+        div.className = 'channel-item';
+        div.innerText = name;
+        
+        div.onclick = async () => {
+            // Remove active class from all and add to clicked one
+            document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+            div.classList.add('active');
+            
+            // Load channel in Shaka Player
+            try {
+                console.log(`Loading channel: ${name}`);
+                await player.load(url);
+            } catch (error) {
+                console.error("Error loading stream:", error);
+                alert("This channel cannot be played. It might be dead or require authentication.");
+            }
+        };
+        
+        container.appendChild(div);
     }
 
-    if (bytes > this.lastBytes) {
-      this.totalMB += (bytes - this.lastBytes) / (1024 * 1024);
-      this.lastBytes = bytes;
+    // --- Custom Skip Buttons Registration ---
+    class SkipForwardButton extends shaka.ui.Element {
+        constructor(parent, controls) {
+            super(parent, controls);
+            this.button_ = document.createElement('button');
+            this.button_.className = 'shaka-skip-forward-button';
+            this.button_.innerHTML = `<svg style="width:24px;height:24px" viewBox="0 0 24 24"><path fill="currentColor" d="M10,8V16L15,12L10,8M4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4C11.11,4 10.26,4.14 9.45,4.41L10.97,5.93C11.31,5.97 11.66,6 12,6A6,6 0 0,1 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12C6,10.66 6.44,9.42 7.18,8.42L5.7,6.94C4.63,8.34 4,10.1 4,12M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12C2,9.22 3.14,6.7 5,4.91V2H7V7H2V5H3.61C2.6,6.96 2,9.41 2,12Z"/></svg>`;
+            this.parent.appendChild(this.button_);
+            this.eventManager.listen(this.button_, 'click', () => {
+                if (this.video) this.video.currentTime = Math.min(this.video.currentTime + 5, this.video.duration);
+            });
+        }
     }
+    class SkipBackwardButton extends shaka.ui.Element {
+        constructor(parent, controls) {
+            super(parent, controls);
+            this.button_ = document.createElement('button');
+            this.button_.className = 'shaka-skip-backward-button';
+            this.button_.innerHTML = `<svg style="width:24px;height:24px" viewBox="0 0 24 24"><path fill="currentColor" d="M12,4A6,6 0 0,1 18,12C18,13.34 17.56,14.58 16.82,15.58L18.3,17.06C19.37,15.66 20,13.9 20,12A10,10 0 0,0 10,2V4.91L11.89,3.03C11.26,2.37 10.41,2 9.5,2C8.59,2 7.74,2.37 7.11,3.03L9,4.91V2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12C22,9.22 20.86,6.7 19,4.91V2H17V7H22V5H20.39C21.4,6.96 22,9.41 22,12M14,16V8L9,12L14,16Z"/></svg>`;
+            this.parent.appendChild(this.button_);
+            this.eventManager.listen(this.button_, 'click', () => {
+                if (this.video) this.video.currentTime = Math.max(this.video.currentTime - 5, 0);
+            });
+        }
+    }
+    
+    shaka.ui.Controls.registerElement('skip_forward_5', { create: (root, ctrl) => new SkipForwardButton(root, ctrl) });
+    shaka.ui.Controls.registerElement('skip_backward_5', { create: (root, ctrl) => new SkipBackwardButton(root, ctrl) });
 
-    const line3 = `${this.totalMB.toFixed(1)} MB`;
-	
-	// ✅ Keep session total in sync to track Data usage
-window.shakaSessionUsageMB = this.totalMB;
+    // --- Stream Stats Registration ---
+    class StreamStatsElement extends shaka.ui.Element {
+        constructor(parent, controls) {
+            super(parent, controls);
+            this.player = controls.getPlayer();
+            this.container = document.createElement('div');
+            this.container.className = 'shaka-stream-stats';
+            controls.getControlsContainer().appendChild(this.container);
 
+            const controlsContainer = controls.getControlsContainer();
+            this.onControlsVisibilityChange = () => {
+                const shown = controlsContainer.getAttribute('shown') === 'true';
+                this.container.classList.toggle('visible', shown);
+            };
+            this.visibilityObserver = new MutationObserver(this.onControlsVisibilityChange);
+            this.visibilityObserver.observe(controlsContainer, { attributes: true, attributeFilter: ['shown'] });
+            
+            this.interval = setInterval(() => this.update(), 1000);
+            this.onControlsVisibilityChange();
+        }
+        update() {
+            const tracks = this.player.getVariantTracks();
+            const active = tracks.find(t => t.active);
+            if (!active) return;
+            
+            let res = `${active.height}p`;
+            let bw = `${Math.round(active.bandwidth / 1000)}kbps`;
+            
+            this.container.innerHTML = `<span class="stat-res">${res}</span><br><span class="stat-bw">${bw}</span>`;
+        }
+        release() {
+            clearInterval(this.interval);
+            this.visibilityObserver.disconnect();
+            super.release();
+        }
+    }
+    shaka.ui.Controls.registerElement('stream_stats', { create: (root, ctrl) => new StreamStatsElement(root, ctrl) });
 
-
-    // ---------- RENDER ----------
-    const lines = [];
-
-if (line1) lines.push(`<span class="stat-res">${line1}</span>`);
-if (line2) lines.push(`<span class="stat-bw">${line2}</span>`);
-
-// Data usage is always shown
-lines.push(`<span class="stat-data">${line3}</span>`);
-
-this.container.innerHTML = lines.join('<br>');
-
-  }
-  
-release() {
-  clearInterval(this.interval);
-  this.visibilityObserver.disconnect();
-  super.release();
-}
-}
-
-class StreamStatsFactory {
-  create(rootElement, controls) {
-    return new StreamStatsElement(rootElement, controls);
-  }
-}
-shaka.ui.Controls.registerElement(
-  'stream_stats',
-  new StreamStatsFactory()
-);
-
-
-
-
-initializePlayer();
-
-
-
-
-    </script>
-	
+    initializePlayer();
+</script>
+    
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,344 +1,180 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Shaka Player with M3U8 Playlist</title>
+    <title>Sports Live - Shaka Player</title>
     <meta name="referrer" content="no-referrer">
     <meta charset="UTF-8">
-    <meta name="color-scheme" content="light dark">
-    <meta name="theme-color" content="#000">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    
-    <script>
-        // Polyfills
-        if (!Map.prototype.getOrInsertComputed) {
-            Map.prototype.getOrInsertComputed = function (key, compute) {
-                if (!this.has(key)) {
-                    const value = compute();
-                    this.set(key, value);
-                    return value;
-                }
-                return this.get(key);
-            };
-        }
-        if (!Map.prototype.getOrInsert) {
-            Map.prototype.getOrInsert = function (key, value) {
-                if (!this.has(key)) {
-                    this.set(key, value);
-                    return value;
-                }
-                return this.get(key);
-            };
-        }
-    </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/shaka-player@5.0.4/dist/shaka-player.ui.min.js" crossorigin="anonymous"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/shaka-player@5.0.4/dist/shaka-player.ui.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@5.0.4/dist/controls.min.css">
     
-    <style type="text/css">
-        * {
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #000;
-            color: white;
-            font-family: Arial, sans-serif;
-            overflow: hidden;
-            height: 100dvh;
-            width: 100dvw;
-        }
-
-        #app {
-            width: 100dvw;
-            height: 100dvh;
-            display: flex;
-            flex-direction: row; /* Changed to row for side-by-side layout */
-            background: #000;
-            overflow: hidden;
-        }
-
-        /* Channel List Sidebar */
-        #channel-list {
-            width: 250px;
-            height: 100%;
-            background: #111;
-            overflow-y: auto;
-            border-right: 1px solid #222;
-            z-index: 10;
-        }
-
-        .channel-item {
-            padding: 12px 15px;
-            border-bottom: 1px solid #222;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background 0.2s;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .channel-item:hover {
-            background: #252525;
-        }
-
-        .channel-item.active {
-            background: #e50914;
-            font-weight: bold;
-        }
-
-        /* Player Container */
-        #shakaplayer {
-            position: relative;
-            background-color: black;
-            flex-grow: 1; /* Takes remaining width */
-            height: 100dvh;
-            overflow: hidden;
-        }
-
-        .shaka-video-container {
-            position: relative;
-            background-color: black;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
-
-        .shaka-video {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-
-        /* Stream Stats Style */
-        .shaka-stream-stats {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 30;
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 6px;
-            padding: 6px 8px;
-            font-family: system-ui, sans-serif;
-            font-size: 12px;
-            font-weight: 600;
-            color: rgba(255, 255, 255, 0.95);
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.35s ease;
-        }
-
-        .shaka-stream-stats.visible { opacity: 1; }
-        .shaka-stream-stats .stat-data { color: rgba(255, 235, 180, 0.9); font-weight: 700; }
-        .shaka-stream-stats .stat-res { color: rgba(180, 220, 255, 0.95); font-weight: 700; }
-        .shaka-stream-stats .stat-bw { color: rgba(180, 255, 210, 0.95); font-weight: 700; }
-
-        .shaka-bottom-controls { width: 96%; padding-bottom: 1%; z-index: 1; }
+    <style>
+        body { margin: 0; background: #080808; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; color: white; }
+        #container { display: flex; width: 100%; height: 100%; }
         
-        /* Mobile refinement */
+        /* Video Player Area */
+        #player-wrapper { flex-grow: 1; position: relative; background: #000; display: flex; align-items: center; justify-content: center; }
+        #shakaplayer { width: 100%; height: 100%; max-height: 100vh; }
+        
+        /* Sidebar Styles */
+        #sidebar { width: 320px; background: #111; border-left: 1px solid #222; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 20px; font-size: 1.2rem; font-weight: bold; background: #1a1a1a; border-bottom: 2px solid #ed1c24; text-transform: uppercase; letter-spacing: 1px; }
+        #channel-list { overflow-y: auto; flex-grow: 1; }
+        
+        /* Channel Item */
+        .channel-item { padding: 12px 15px; border-bottom: 1px solid #1f1f1f; cursor: pointer; display: flex; align-items: center; transition: all 0.2s ease; }
+        .channel-item:hover { background: #252525; }
+        .channel-item.active { background: #333; border-left: 4px solid #ed1c24; }
+        .channel-item img { width: 60px; height: 40px; object-fit: contain; margin-right: 15px; background: #000; border-radius: 4px; }
+        .channel-item span { font-size: 14px; font-weight: 500; color: #eee; }
+
         @media (max-width: 768px) {
-            #app { flex-direction: column-reverse; }
-            #channel-list { width: 100%; height: 30dvh; border-right: none; border-top: 1px solid #222; }
-            #shakaplayer { height: 70dvh; }
+            #container { flex-direction: column; }
+            #sidebar { width: 100%; height: 250px; border-left: none; }
         }
     </style>
 </head>
 <body>
 
-<div id="app">
-    <div id="channel-list">
-        <div style="padding: 15px; font-weight: bold; border-bottom: 1px solid #333; color: #aaa;">Live Channels</div>
-        <div id="channels-container">Loading playlist...</div>
-    </div>
-
-    <div id="shakaplayer">
-        <div class="shaka-video-container">
-            <video autoplay id="video" class="shaka-video"></video>
+<div id="container">
+    <div id="player-wrapper">
+        <div id="shakaplayer" class="shaka-video-container" data-shaka-player-container>
+            <video autoplay id="video" class="shaka-video" data-shaka-player-video></video>
         </div>
+    </div>
+    
+    <div id="sidebar">
+        <div class="sidebar-header">Sports Channels</div>
+        <div id="channel-list"></div>
     </div>
 </div>
 
 <script>
-    let player; 
-    let ui; 
-    const playlistUrl = "https://allinonereborn.online/jiotv-m3u/playlist1221.m3u8";
+// Aapka Diya Hua M3U Data
+const rawM3U = `#EXTINF:-1 tvg-id="1345" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/98/79/302114_1749665414817_l_medium.jpg",Star Sports Select 2 HD
+#KODIPROP:inputstream.adaptive.license_key=6017d0514d425fa38f6e80ba6dcc852f:0018944b00adf2078f62386f30c68b74
+https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_Select_HD_2_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
 
-    // Initialize Shaka Player
-    async function initializePlayer() {
-        const videoContainer = document.querySelector('.shaka-video-container');
-        const videoElement = document.getElementById('video');
-        
-        videoElement.muted = true;
-        videoElement.autoplay = true;
+#EXTINF:-1 tvg-id="1346" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/98/48/301989_1749664475828_l_medium.jpg",Star Sports Select 2
+#KODIPROP:inputstream.adaptive.license_key=ec7d009d07aa5cbc81a441880530dfa5:8147983ad7402ebfc222d28b667a196f
+https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_Select_2_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
 
-        player = new shaka.Player();
+#EXTINF:-1 tvg-id="1347" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/76/32/301981_1749665664018_l_medium.jpg",Star Sports 1 HD
+#KODIPROP:inputstream.adaptive.license_key=965dc2ddb1d85138ad787999a7f30ca5:859695076e67fe961836b564db6d689c
+https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_HD1_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
 
-        const uiConfig = {
-            fadeDelay: 0,
-            closeMenusDelay: 3,
-            forceLandscapeOnFullscreen: true,
-            controlPanelElements: [
-                'time_and_duration', 'mute', 'volume', 'skip_backward_5', 
-                'skip_forward_5', 'stream_stats', 'play_pause', 'spacer', 
-                'quality', 'overflow_menu', 'picture_in_picture', 'fullscreen'
-            ],
-            overflowMenuButtons: [
-                'picture_in_picture', 'cast', 'loop', 'language', 
-                'playback_rate', 'captions', 'save_video_frame', 'statistics', 'quality'
-            ],
-            seekBarColors: {
-                base: 'rgba(255, 255, 255, 0.3)',
-                buffered: 'rgba(63, 133, 244, 0.65)',
-                played: 'rgb(229, 9, 31)'
-            }
+#EXTINF:-1 tvg-id="1348" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/56/92/302115_1749665579801_l_medium.jpg",Star Sports 1
+#KODIPROP:inputstream.adaptive.license_key=df20894ec30954d3b28097c138f4cfda:ff9b6292b1cddbd11a046029cb314634
+https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_1_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
+
+#EXTINF:-1 tvg-id="1349" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/5/6/301982_1749665314605_l_medium.jpg",Star Sports 1 Hindi HD
+#KODIPROP:inputstream.adaptive.license_key=400131994b445d8c8817202248760fda:2d56cb6f07a75b9aff165d534ae2bfc4
+https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_HD1_Hindi_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
+
+#EXTINF:-1 tvg-id="1350" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/13/81/302112_1749665154709_l_medium.jpg",Star Sports 1 Hindi
+#KODIPROP:inputstream.adaptive.license_key=8ea9b607549252068e260a5f4d7dd321:350c0aaffedf51cc1502e9543c7c885e
+https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_1_Hindi_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
+
+#EXTINF:-1 tvg-id="1351" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/41/51/301983_1749666169105_l_medium.jpg",Star Sports 2 HD
+#KODIPROP:inputstream.adaptive.license_key=9457eb90129456fa8ea95e10ba4ac51e:e620a970cea474c491ac78ae71a4d764
+https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_HD2_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
+
+#EXTINF:-1 tvg-id="1352" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/11/30/302116_1749666029079_l_medium.jpg",Star Sports 2
+#KODIPROP:inputstream.adaptive.license_key=fc3aafe80845584199a637249fad2ffa:ca4474972fdb4bf8ecb164482853c692
+https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_2_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
+
+#EXTINF:-1 tvg-id="1353" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/56/36/301229_1742214332015_l_medium.jpg",Star Sports 2 Hindi HD
+#KODIPROP:inputstream.adaptive.license_key=bd1ea6a1c1fb5dcdb709434e0826bbc0:f57f22cba32739ce7beb1fab3f3d060b
+https://jiotvmblive.cdn.jio.com//bpk-tv/StarSportsHD2Hin_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
+
+#EXTINF:-1 tvg-id="1355" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/78/2/302117_1749666092192_l_medium.jpg",Star Sports 3
+#KODIPROP:inputstream.adaptive.license_key=e4e8647eaf0659ac85f61765a5abcdc1:d749c9b27505beb0e1a8b6c30ca65de6
+https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_3_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
+
+#EXTINF:-1 tvg-id="1356" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/19/19/302122_1749662923298_l_medium.jpg",Star Sports 1 Tamil HD
+#KODIPROP:inputstream.adaptive.license_key=2272c0bc6b2e5cb090b1f55996e0026c:943923934de1d5536ab01c67fca8b337
+https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_1_Tamil_HD_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
+
+#EXTINF:-1 tvg-id="1358" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/19/57/302123_1749663029798_l_medium.jpg",Star Sports 1 Telugu HD
+#KODIPROP:inputstream.adaptive.license_key=49e84b9edfd85379b90c81b7d2d3d2bf:19c82d3ff094fa06af95820a1572ecb5
+https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_1_Telugu_HD_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7`;
+
+let player, ui;
+
+// Function to Parse M3U
+function parseM3U(data) {
+    const lines = data.split('\n');
+    const channels = [];
+    let currentChannel = {};
+
+    lines.forEach(line => {
+        if (line.startsWith('#EXTINF')) {
+            currentChannel.name = line.split(',')[1].trim();
+            const logoMatch = line.match(/tvg-logo="([^"]+)"/);
+            currentChannel.logo = logoMatch ? logoMatch[1] : "";
+        } else if (line.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {
+            const keys = line.split('=')[1].split(':');
+            currentChannel.keyId = keys[0].trim();
+            currentChannel.key = keys[1].trim();
+        } else if (line.startsWith('http')) {
+            currentChannel.url = line.trim();
+            channels.push({...currentChannel});
+            currentChannel = {};
+        }
+    });
+    return channels;
+}
+
+const channels = parseM3U(rawM3U);
+
+async function init() {
+    const video = document.getElementById('video');
+    const container = document.getElementById('shakaplayer');
+    
+    player = new shaka.Player(video);
+    ui = new shaka.ui.Overlay(player, container, video);
+
+    // Build Channel List
+    const listDiv = document.getElementById('channel-list');
+    channels.forEach((ch, index) => {
+        const item = document.createElement('div');
+        item.className = 'channel-item';
+        item.innerHTML = `<img src="${ch.logo}"><span>${ch.name}</span>`;
+        item.onclick = () => {
+            document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+            item.classList.add('active');
+            loadChannel(ch);
         };
+        listDiv.appendChild(item);
+    });
 
-        ui = new shaka.ui.Overlay(player, videoContainer, videoElement);
-        window.shakaControls = ui.getControls();
+    // Load first channel on start
+    if(channels.length > 0) {
+        listDiv.firstChild.classList.add('active');
+        loadChannel(channels[0]);
+    }
+}
 
-        await player.attach(videoElement);
-        ui.configure(uiConfig);
-
+async function loadChannel(ch) {
+    try {
         player.configure({
-            manifest: { dash: { ignoreMinBufferTime: true } }
+            drm: {
+                clearKeys: { [ch.keyId]: ch.key }
+            }
         });
 
-        // Load Playlist after player setup
-        loadM3U8Playlist();
-    }
+        // Add JioTV specific User-Agent
+        player.getNetworkingEngine().registerRequestFilter((type, request) => {
+            request.headers['User-Agent'] = '@allinone_reborn';
+        });
 
-    // Function to parse M3U8 and create channel list
-    async function loadM3U8Playlist() {
-        const container = document.getElementById('channels-container');
-        try {
-            const response = await fetch(playlistUrl);
-            if (!response.ok) throw new Error("Network response was not ok");
-            const data = await response.text();
-            
-            const lines = data.split('\n');
-            container.innerHTML = ''; // Clear loading text
-            
-            let currentChannelName = '';
-            
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
-                
-                // Extract Channel Name
-                if (line.startsWith('#EXTINF:')) {
-                    const nameMatch = line.match(/,(.+)$/);
-                    currentChannelName = nameMatch ? nameMatch[1] : 'Unknown Channel';
-                } 
-                // Extract URL (usually the line after #EXTINF)
-                else if (line.startsWith('http')) {
-                    const streamUrl = line;
-                    createChannelButton(currentChannelName, streamUrl);
-                }
-            }
-        } catch (error) {
-            console.error("Error loading M3U8:", error);
-            container.innerHTML = '<div style="padding:15px; color:red;">Failed to load playlist.</div>';
-        }
+        await player.load(ch.url);
+    } catch (e) {
+        console.error("Load Error", e);
     }
+}
 
-    function createChannelButton(name, url) {
-        const container = document.getElementById('channels-container');
-        const div = document.createElement('div');
-        div.className = 'channel-item';
-        div.innerText = name;
-        
-        div.onclick = async () => {
-            // Remove active class from all and add to clicked one
-            document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
-            div.classList.add('active');
-            
-            // Load channel in Shaka Player
-            try {
-                console.log(`Loading channel: ${name}`);
-                await player.load(url);
-            } catch (error) {
-                console.error("Error loading stream:", error);
-                alert("This channel cannot be played. It might be dead or require authentication.");
-            }
-        };
-        
-        container.appendChild(div);
-    }
-
-    // --- Custom Skip Buttons Registration ---
-    class SkipForwardButton extends shaka.ui.Element {
-        constructor(parent, controls) {
-            super(parent, controls);
-            this.button_ = document.createElement('button');
-            this.button_.className = 'shaka-skip-forward-button';
-            this.button_.innerHTML = `<svg style="width:24px;height:24px" viewBox="0 0 24 24"><path fill="currentColor" d="M10,8V16L15,12L10,8M4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4C11.11,4 10.26,4.14 9.45,4.41L10.97,5.93C11.31,5.97 11.66,6 12,6A6,6 0 0,1 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12C6,10.66 6.44,9.42 7.18,8.42L5.7,6.94C4.63,8.34 4,10.1 4,12M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12C2,9.22 3.14,6.7 5,4.91V2H7V7H2V5H3.61C2.6,6.96 2,9.41 2,12Z"/></svg>`;
-            this.parent.appendChild(this.button_);
-            this.eventManager.listen(this.button_, 'click', () => {
-                if (this.video) this.video.currentTime = Math.min(this.video.currentTime + 5, this.video.duration);
-            });
-        }
-    }
-    class SkipBackwardButton extends shaka.ui.Element {
-        constructor(parent, controls) {
-            super(parent, controls);
-            this.button_ = document.createElement('button');
-            this.button_.className = 'shaka-skip-backward-button';
-            this.button_.innerHTML = `<svg style="width:24px;height:24px" viewBox="0 0 24 24"><path fill="currentColor" d="M12,4A6,6 0 0,1 18,12C18,13.34 17.56,14.58 16.82,15.58L18.3,17.06C19.37,15.66 20,13.9 20,12A10,10 0 0,0 10,2V4.91L11.89,3.03C11.26,2.37 10.41,2 9.5,2C8.59,2 7.74,2.37 7.11,3.03L9,4.91V2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12C22,9.22 20.86,6.7 19,4.91V2H17V7H22V5H20.39C21.4,6.96 22,9.41 22,12M14,16V8L9,12L14,16Z"/></svg>`;
-            this.parent.appendChild(this.button_);
-            this.eventManager.listen(this.button_, 'click', () => {
-                if (this.video) this.video.currentTime = Math.max(this.video.currentTime - 5, 0);
-            });
-        }
-    }
-    
-    shaka.ui.Controls.registerElement('skip_forward_5', { create: (root, ctrl) => new SkipForwardButton(root, ctrl) });
-    shaka.ui.Controls.registerElement('skip_backward_5', { create: (root, ctrl) => new SkipBackwardButton(root, ctrl) });
-
-    // --- Stream Stats Registration ---
-    class StreamStatsElement extends shaka.ui.Element {
-        constructor(parent, controls) {
-            super(parent, controls);
-            this.player = controls.getPlayer();
-            this.container = document.createElement('div');
-            this.container.className = 'shaka-stream-stats';
-            controls.getControlsContainer().appendChild(this.container);
-
-            const controlsContainer = controls.getControlsContainer();
-            this.onControlsVisibilityChange = () => {
-                const shown = controlsContainer.getAttribute('shown') === 'true';
-                this.container.classList.toggle('visible', shown);
-            };
-            this.visibilityObserver = new MutationObserver(this.onControlsVisibilityChange);
-            this.visibilityObserver.observe(controlsContainer, { attributes: true, attributeFilter: ['shown'] });
-            
-            this.interval = setInterval(() => this.update(), 1000);
-            this.onControlsVisibilityChange();
-        }
-        update() {
-            const tracks = this.player.getVariantTracks();
-            const active = tracks.find(t => t.active);
-            if (!active) return;
-            
-            let res = `${active.height}p`;
-            let bw = `${Math.round(active.bandwidth / 1000)}kbps`;
-            
-            this.container.innerHTML = `<span class="stat-res">${res}</span><br><span class="stat-bw">${bw}</span>`;
-        }
-        release() {
-            clearInterval(this.interval);
-            this.visibilityObserver.disconnect();
-            super.release();
-        }
-    }
-    shaka.ui.Controls.registerElement('stream_stats', { create: (root, ctrl) => new StreamStatsElement(root, ctrl) });
-
-    initializePlayer();
+document.addEventListener('shaka-ui-loaded', init);
 </script>
-    
 </body>
 </html>

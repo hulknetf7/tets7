@@ -1,180 +1,61 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <title>Sports Live - Shaka Player</title>
-    <meta name="referrer" content="no-referrer">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.jsdelivr.net/npm/shaka-player@5.0.4/dist/shaka-player.ui.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@5.0.4/dist/controls.min.css">
-    
+    <title>Sports Live Player</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.min.css">
     <style>
-        body { margin: 0; background: #080808; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; color: white; }
-        #container { display: flex; width: 100%; height: 100%; }
-        
-        /* Video Player Area */
-        #player-wrapper { flex-grow: 1; position: relative; background: #000; display: flex; align-items: center; justify-content: center; }
-        #shakaplayer { width: 100%; height: 100%; max-height: 100vh; }
-        
-        /* Sidebar Styles */
-        #sidebar { width: 320px; background: #111; border-left: 1px solid #222; display: flex; flex-direction: column; }
-        .sidebar-header { padding: 20px; font-size: 1.2rem; font-weight: bold; background: #1a1a1a; border-bottom: 2px solid #ed1c24; text-transform: uppercase; letter-spacing: 1px; }
-        #channel-list { overflow-y: auto; flex-grow: 1; }
-        
-        /* Channel Item */
-        .channel-item { padding: 12px 15px; border-bottom: 1px solid #1f1f1f; cursor: pointer; display: flex; align-items: center; transition: all 0.2s ease; }
-        .channel-item:hover { background: #252525; }
-        .channel-item.active { background: #333; border-left: 4px solid #ed1c24; }
-        .channel-item img { width: 60px; height: 40px; object-fit: contain; margin-right: 15px; background: #000; border-radius: 4px; }
-        .channel-item span { font-size: 14px; font-weight: 500; color: #eee; }
-
-        @media (max-width: 768px) {
-            #container { flex-direction: column; }
-            #sidebar { width: 100%; height: 250px; border-left: none; }
-        }
+        body { margin: 0; background: #000; color: white; font-family: sans-serif; display: flex; }
+        #sidebar { width: 300px; height: 100vh; overflow-y: auto; background: #111; }
+        #video-container { flex: 1; height: 100vh; }
+        .channel { padding: 15px; border-bottom: 1px solid #222; cursor: pointer; display: flex; align-items: center; }
+        .channel:hover { background: #333; }
+        .channel img { width: 50px; margin-right: 10px; }
+        video { width: 100%; height: 100%; }
     </style>
 </head>
 <body>
 
-<div id="container">
-    <div id="player-wrapper">
-        <div id="shakaplayer" class="shaka-video-container" data-shaka-player-container>
-            <video autoplay id="video" class="shaka-video" data-shaka-player-video></video>
-        </div>
+<div id="sidebar" id="list">
     </div>
-    
-    <div id="sidebar">
-        <div class="sidebar-header">Sports Channels</div>
-        <div id="channel-list"></div>
-    </div>
+
+<div id="video-container" data-shaka-player-container>
+    <video autoplay id="video" data-shaka-player-video></video>
 </div>
 
 <script>
-// Aapka Diya Hua M3U Data
-const rawM3U = `#EXTINF:-1 tvg-id="1345" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/98/79/302114_1749665414817_l_medium.jpg",Star Sports Select 2 HD
-#KODIPROP:inputstream.adaptive.license_key=6017d0514d425fa38f6e80ba6dcc852f:0018944b00adf2078f62386f30c68b74
-https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_Select_HD_2_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
+const channels = [
+    { name: "Star Sports 1 HD", url: "https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_HD1_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7", kid: "965dc2ddb1d85138ad787999a7f30ca5", key: "859695076e67fe961836b564db6d689c" },
+    { name: "Star Sports 1 Hindi HD", url: "https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_HD1_Hindi_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7", kid: "400131994b445d8c8817202248760fda", key: "2d56cb6f07a75b9aff165d534ae2bfc4" },
+    { name: "Star Sports Select 2 HD", url: "https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_Select_HD_2_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7", kid: "6017d0514d425fa38f6e80ba6dcc852f", key: "0018944b00adf2078f62386f30c68b74" }
+];
 
-#EXTINF:-1 tvg-id="1346" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/98/48/301989_1749664475828_l_medium.jpg",Star Sports Select 2
-#KODIPROP:inputstream.adaptive.license_key=ec7d009d07aa5cbc81a441880530dfa5:8147983ad7402ebfc222d28b667a196f
-https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_Select_2_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
-
-#EXTINF:-1 tvg-id="1347" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/76/32/301981_1749665664018_l_medium.jpg",Star Sports 1 HD
-#KODIPROP:inputstream.adaptive.license_key=965dc2ddb1d85138ad787999a7f30ca5:859695076e67fe961836b564db6d689c
-https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_HD1_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
-
-#EXTINF:-1 tvg-id="1348" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/56/92/302115_1749665579801_l_medium.jpg",Star Sports 1
-#KODIPROP:inputstream.adaptive.license_key=df20894ec30954d3b28097c138f4cfda:ff9b6292b1cddbd11a046029cb314634
-https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_1_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
-
-#EXTINF:-1 tvg-id="1349" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/5/6/301982_1749665314605_l_medium.jpg",Star Sports 1 Hindi HD
-#KODIPROP:inputstream.adaptive.license_key=400131994b445d8c8817202248760fda:2d56cb6f07a75b9aff165d534ae2bfc4
-https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_HD1_Hindi_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
-
-#EXTINF:-1 tvg-id="1350" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/13/81/302112_1749665154709_l_medium.jpg",Star Sports 1 Hindi
-#KODIPROP:inputstream.adaptive.license_key=8ea9b607549252068e260a5f4d7dd321:350c0aaffedf51cc1502e9543c7c885e
-https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_1_Hindi_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
-
-#EXTINF:-1 tvg-id="1351" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/41/51/301983_1749666169105_l_medium.jpg",Star Sports 2 HD
-#KODIPROP:inputstream.adaptive.license_key=9457eb90129456fa8ea95e10ba4ac51e:e620a970cea474c491ac78ae71a4d764
-https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_HD2_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
-
-#EXTINF:-1 tvg-id="1352" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/11/30/302116_1749666029079_l_medium.jpg",Star Sports 2
-#KODIPROP:inputstream.adaptive.license_key=fc3aafe80845584199a637249fad2ffa:ca4474972fdb4bf8ecb164482853c692
-https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_2_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
-
-#EXTINF:-1 tvg-id="1353" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/56/36/301229_1742214332015_l_medium.jpg",Star Sports 2 Hindi HD
-#KODIPROP:inputstream.adaptive.license_key=bd1ea6a1c1fb5dcdb709434e0826bbc0:f57f22cba32739ce7beb1fab3f3d060b
-https://jiotvmblive.cdn.jio.com//bpk-tv/StarSportsHD2Hin_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
-
-#EXTINF:-1 tvg-id="1355" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/78/2/302117_1749666092192_l_medium.jpg",Star Sports 3
-#KODIPROP:inputstream.adaptive.license_key=e4e8647eaf0659ac85f61765a5abcdc1:d749c9b27505beb0e1a8b6c30ca65de6
-https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_3_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
-
-#EXTINF:-1 tvg-id="1356" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/19/19/302122_1749662923298_l_medium.jpg",Star Sports 1 Tamil HD
-#KODIPROP:inputstream.adaptive.license_key=2272c0bc6b2e5cb090b1f55996e0026c:943923934de1d5536ab01c67fca8b337
-https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_1_Tamil_HD_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7
-
-#EXTINF:-1 tvg-id="1358" group-title="Sports" tvg-logo="https://img.media.jio.com/tvpimages/19/57/302123_1749663029798_l_medium.jpg",Star Sports 1 Telugu HD
-#KODIPROP:inputstream.adaptive.license_key=49e84b9edfd85379b90c81b7d2d3d2bf:19c82d3ff094fa06af95820a1572ecb5
-https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_1_Telugu_HD_BTS/output/index.mpd?__hdnea__=st=1774925368~exp=1775011768~acl=/*~hmac=9deb8c1930715c6a49b27570eff8279fa785e4350b8f515b6e62f7645066b3b7`;
-
-let player, ui;
-
-// Function to Parse M3U
-function parseM3U(data) {
-    const lines = data.split('\n');
-    const channels = [];
-    let currentChannel = {};
-
-    lines.forEach(line => {
-        if (line.startsWith('#EXTINF')) {
-            currentChannel.name = line.split(',')[1].trim();
-            const logoMatch = line.match(/tvg-logo="([^"]+)"/);
-            currentChannel.logo = logoMatch ? logoMatch[1] : "";
-        } else if (line.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {
-            const keys = line.split('=')[1].split(':');
-            currentChannel.keyId = keys[0].trim();
-            currentChannel.key = keys[1].trim();
-        } else if (line.startsWith('http')) {
-            currentChannel.url = line.trim();
-            channels.push({...currentChannel});
-            currentChannel = {};
-        }
-    });
-    return channels;
-}
-
-const channels = parseM3U(rawM3U);
-
-async function init() {
+async function initPlayer() {
     const video = document.getElementById('video');
-    const container = document.getElementById('shakaplayer');
-    
-    player = new shaka.Player(video);
-    ui = new shaka.ui.Overlay(player, container, video);
+    const player = new shaka.Player(video);
+    const sidebar = document.getElementById('sidebar');
 
-    // Build Channel List
-    const listDiv = document.getElementById('channel-list');
-    channels.forEach((ch, index) => {
-        const item = document.createElement('div');
-        item.className = 'channel-item';
-        item.innerHTML = `<img src="${ch.logo}"><span>${ch.name}</span>`;
-        item.onclick = () => {
-            document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
-            item.classList.add('active');
-            loadChannel(ch);
+    channels.forEach(ch => {
+        let div = document.createElement('div');
+        div.className = 'channel';
+        div.innerText = ch.name;
+        div.onclick = async () => {
+            try {
+                await player.configure({
+                    drm: { clearKeys: { [ch.kid]: ch.key } }
+                });
+                // Fake User-Agent for Jio
+                player.getNetworkingEngine().registerRequestFilter((type, request) => {
+                    request.headers['User-Agent'] = 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36';
+                });
+                await player.load(ch.url);
+            } catch(e) { alert("Error: Link expired or CORS issue!"); }
         };
-        listDiv.appendChild(item);
+        sidebar.appendChild(div);
     });
-
-    // Load first channel on start
-    if(channels.length > 0) {
-        listDiv.firstChild.classList.add('active');
-        loadChannel(channels[0]);
-    }
 }
 
-async function loadChannel(ch) {
-    try {
-        player.configure({
-            drm: {
-                clearKeys: { [ch.keyId]: ch.key }
-            }
-        });
-
-        // Add JioTV specific User-Agent
-        player.getNetworkingEngine().registerRequestFilter((type, request) => {
-            request.headers['User-Agent'] = '@allinone_reborn';
-        });
-
-        await player.load(ch.url);
-    } catch (e) {
-        console.error("Load Error", e);
-    }
-}
-
-document.addEventListener('shaka-ui-loaded', init);
+document.addEventListener('DOMContentLoaded', initPlayer);
 </script>
 </body>
 </html>

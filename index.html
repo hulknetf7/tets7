@@ -1,106 +1,130 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fixed Star Sports Player</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@4.7.11/dist/controls.css">
-    <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
-        #video-container { width: 100vw; height: 100vh; }
-        video { width: 100%; height: 100%; }
-        #pro-launcher {
-            position: absolute; top: 15px; left: 15px; z-index: 1000;
-            background: rgba(0, 123, 255, 0.8); color: white; border: none;
-            padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold;
-        }
-    </style>
-</head>
-<body>
-
-<div id="video-container" shaka-controls-container>
-    <button id="pro-launcher">VIDEO PRO TOOLS</button>
-    <video id="video" autoplay crossorigin="anonymous"></video>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/shaka-player@4.7.11/dist/shaka-player.ui.js"></script>
-
-<script>
-// MPD URL aur Keys
-const manifestUri = 'https://jiotvmblive.cdn.jio.com//bpk-tv/Star_Sports_HD1_BTS/output/index.mpd?__hdnea__=st=1774937870~exp=1775024270~acl=/*~hmac=a5156ff146747037632d3461c277c16755bf24d805f32ca2c97d4e744563e15a';
-const clearKeyId = '965dc2ddb1d85138ad787999a7f30ca5';
-const clearKeyValue = '859695076e67fe961836b564db6d689c';
-
-async function initPlayer() {
-    const video = document.getElementById('video');
-    const videoContainer = document.getElementById('video-container');
-    const player = new shaka.Player(video);
-    const ui = new shaka.ui.Overlay(player, videoContainer, video);
-
-    // UI Controls Configuration (10s back/forward is auto-enabled with rewind/fast_forward)
-    ui.configure({
-        'controlPanelElements': ['play_pause', 'rewind', 'fast_forward', 'time_and_duration', 'spacer', 'quality', 'fullscreen'],
-        'addFastForwardButton': true,
-        'addRewindButton': true,
-        'castReceiverAppId': '7.1'
-    });
-
-    player.configure({
-        drm: {
-            clearKeys: { [clearKeyId]: clearKeyValue }
-        },
-        network: {
-            requestFilter: (type, request) => {
-                // 1. Set User Agent
-                request.headers['User-Agent'] = '@allinone_reborn';
-                
-                // 2. CORS Proxy bypass (Most Important for GitHub Pages)
-                // Agar direct link kaam nahi kar raha, toh niche wali line se 'raw.githubusercontent' ya proxy use karein
-                // request.uris[0] = 'https://cors-proxy.htmldriven.com/?url=' + encodeURIComponent(request.uris[0]);
-            }
-        }
-    });
-
-    try {
-        await player.load(manifestUri);
-        console.log('Playing...');
-    } catch (e) {
-        console.error('Error Code:', e.code, 'Check if token is expired.');
-        if(e.code == 1001) alert("Error: Link Expire ho gaya hai. Naya MPD link dalein.");
-    }
+<meta charset="UTF-8">
+<title>Live TV UI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.6/controls.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.6/shaka-player.ui.js"></script><style>
+body {
+  margin:0;
+  font-family: Arial, sans-serif;
+  background:#0f0f0f;
+  color:white;
+  display:flex;
 }
 
-// --- Video Pro Tools Overlay Script ---
-document.getElementById('pro-launcher').onclick = function() {
-    let id='v-pro-smooth';
-    if(document.getElementById(id)){document.getElementById(id).remove();return;}
-    let p=document.createElement('div');
-    p.id=id;
-    p.style="position:fixed;top:70px;left:20px;z-index:9999;background:rgba(20,20,20,0.95);color:#fff;padding:15px;border-radius:12px;border:2px solid #007bff;width:240px;box-shadow:0 10px 30px #000;";
-    
-    let sldr = (l,i,min,max,v) => `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${l}</span><span id="${i}V">${v}</span></div><input type="range" id="${i}" min="${min}" max="${max}" step="0.1" value="${v}" style="width:100%"></div>`;
-    
-    p.innerHTML = `<div style="text-align:center;font-weight:bold;color:#007bff;margin-bottom:15px;border-bottom:1px solid #333">Video Pro + Smooth</div>
-        ${sldr('Contrast','cIn',0.5,3,1)}${sldr('Saturate','sIn',0.5,3,1)}${sldr('Brightness','bIn',0.5,2,1)}${sldr('Smooth (Blur)','smIn',0,2,0)}
-        <div style="display:flex;gap:5px;margin-top:10px">
-            <button id="rBtn" style="flex:1;background:#444;color:#fff;border:none;padding:8px;border-radius:6px;cursor:pointer">Reset</button>
-            <button id="xBtn" style="flex:1;background:#d32f2f;color:#fff;border:none;padding:8px;border-radius:6px;cursor:pointer">Close</button>
-        </div>`;
-    document.body.appendChild(p);
+/* Sidebar */
+#sidebar {
+  width:260px;
+  background:#111;
+  height:100vh;
+  overflow-y:auto;
+  border-right:1px solid #222;
+}
 
-    let up = () => {
-        let vids = document.querySelectorAll('video');
-        let f = `contrast(${cIn.value}) saturate(${sIn.value}) brightness(${bIn.value}) blur(${smIn.value}px)`;
-        vids.forEach(v => v.style.filter = f);
-        cInV.innerText=cIn.value; sInV.innerText=sIn.value; bInV.innerText=bIn.value; smInV.innerText=smIn.value;
-    };
+.channel {
+  padding:15px;
+  cursor:pointer;
+  border-bottom:1px solid #222;
+  transition:0.3s;
+}
 
-    ['cIn','sIn','bIn','smIn'].forEach(i => document.getElementById(i).oninput = up);
-    document.getElementById('rBtn').onclick = () => { cIn.value=1; sIn.value=1; bIn.value=1; smIn.value=0; up(); };
-    document.getElementById('xBtn').onclick = () => p.remove();
+.channel:hover {
+  background:#1f1f1f;
+}
+
+.active {
+  background:#ff3d00;
+}
+
+/* Main Player */
+#main {
+  flex:1;
+  display:flex;
+  flex-direction:column;
+}
+
+#player-container {
+  flex:1;
+}
+
+video {
+  width:100%;
+  height:100vh;
+}
+
+/* Header */
+#header {
+  padding:12px;
+  background:#111;
+  font-size:18px;
+  border-bottom:1px solid #222;
+}
+</style></head><body><div id="sidebar">
+  <div class="channel active" onclick="playChannel('1', this)">
+    Star Sports 1 HD
+  </div>
+  <div class="channel" onclick="playChannel('2', this)">
+    Star Sports 1 Hindi HD
+  </div>
+</div><div id="main">
+  <div id="header">📺 Live TV</div>
+  <div id="player-container">
+    <video id="video" autoplay controls></video>
+  </div>
+</div><script>
+let player;
+
+const channels = {
+  "1": {
+    name: "Star Sports 1 HD",
+    url: "https://jiotvmblive.cdn.jio.com/bpk-tv/Star_Sports_HD1_BTS/output/index.mpd?cookie=__hdnea__=st=1775021504~exp=1775107904~acl=/*~hmac=045c4a0c3ea4d125ef8412eae95f5a5a23ad0fc701c8b9df5c0a2a4830454d87",
+    keyId: "965dc2ddb1d85138ad787999a7f30ca5",
+    key: "859695076e67fe961836b564db6d689c"
+  },
+  "2": {
+    name: "Star Sports 1 Hindi HD",
+    url: "https://jiotvmblive.cdn.jio.com/bpk-tv/Star_Sports_HD1_Hindi_BTS/output/index.mpd?cookie=__hdnea__=st=1775021504~exp=1775107904~acl=/*~hmac=045c4a0c3ea4d125ef8412eae95f5a5a23ad0fc701c8b9df5c0a2a4830454d87",
+    keyId: "400131994b445d8c8817202248760fda",
+    key: "2d56cb6f07a75b9aff165d534ae2bfc4"
+  }
 };
 
-document.addEventListener('shaka-ui-loaded', initPlayer);
-</script>
-</body>
+async function init() {
+  const video = document.getElementById('video');
+
+  player = new shaka.Player(video);
+
+  new shaka.ui.Overlay(player, video, video.parentElement);
+
+  playChannel("1", document.querySelector('.channel'));
+}
+
+async function playChannel(id, el) {
+  document.querySelectorAll('.channel').forEach(c => c.classList.remove('active'));
+  if(el) el.classList.add('active');
+
+  const ch = channels[id];
+
+  try {
+    await player.unload();
+
+    player.configure({
+      drm: {
+        clearKeys: {
+          [ch.keyId]: ch.key
+        }
+      }
+    });
+
+    await player.load(ch.url);
+
+    document.getElementById('header').innerText = "📺 " + ch.name;
+
+  } catch(e) {
+    console.error("Error:", e);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script></body>
 </html>

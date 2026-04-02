@@ -1,45 +1,145 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Stable DRM Player</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.6/controls.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.6/shaka-player.ui.js"></script><style>
-body { margin:0; background:black; }
-video { width:100%; height:100vh; }
-</style></head><body><video id="video" autoplay muted playsinline controls></video>
+    <title>Shaka Player - Star Sports Hindi</title>
+    <meta name="referrer" content="no-referrer">
+    <meta charset="UTF-8">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#000">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <script>
+        if (!Map.prototype.getOrInsertComputed) { Map.prototype.getOrInsertComputed = function (key, compute) { if (!this.has(key)) { const value = compute(); this.set(key, value); return value; } return this.get(key); }; }
+        if (!Map.prototype.getOrInsert) { Map.prototype.getOrInsert = function (key, value) { if (!this.has(key)) { this.set(key, value); return value; } return this.get(key); }; }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/shaka-player@5.0.4/dist/shaka-player.ui.min.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@5.0.4/dist/controls.min.css">
+    <style type="text/css">
+        body { margin: 0; padding: 0; background-color: #000; color: white; font-family: Arial, sans-serif; overflow: hidden; height: 100dvh; width: 100dvw; }
+        #shakaplayer { position: relative; background-color: black; width: 100dvw; height: 100dvh; overflow: hidden; }
+        .shaka-video-container { position: relative; background-color: black; width: 100%; height: 100%; }
+        .shaka-video { width: 100%; height: 100%; object-fit: contain; }
+        .shaka-stream-stats { position: absolute; top: 10px; left: 10px; z-index: 30; background: rgba(0, 0, 0, 0.4); border-radius: 6px; padding: 6px 8px; font-size: 12px; color: white; pointer-events: none; opacity: 0; transition: opacity 0.35s; }
+        .shaka-stream-stats.visible { opacity: 1; }
+        .stat-res { color: #b4dcff; font-weight: bold; }
+        .stat-bw { color: #b4ffd2; font-weight: bold; }
+        .stat-data { color: #ffebb4; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div id="shakaplayer">
+            <div class="shaka-video-container">
+                <video autoplay id="video" class="shaka-video" crossorigin="anonymous"></video>
+            </div>
+        </div>
+    </div>
 
-<script>
-async function init() {
-  const video = document.getElementById('video');
+    <script>
+        let player;
+        let ui;
 
-  const player = new shaka.Player(video);
+        async function initializePlayer() {
+            const videoContainer = document.querySelector('.shaka-video-container');
+            const videoElement = document.getElementById('video');
 
-  // Error logs
-  player.addEventListener('error', e => {
-    console.error('Shaka Error:', e.detail);
-    alert("Error aaya - console check karo (F12)");
-  });
+            // --- NAYI STREAM DETAILS ---
+            const streamInfo = {
+                streamUrl: "https://jiotvpllive.cdn.jio.com/bpk-tv/Star_Sports_HD1_Hindi_BTS/output/index.mpd",
+                clearKeys: {
+                    "400131994b445d8c8817202248760fda": "2d56cb6f07a75b9aff165d534ae2bfc4"
+                },
+                cookie: "__hdnea__=st=1775131200~exp=1775152800~acl=/*~hmac=2dae0b4f0f0644367ed24ab627e46c0037f02e5e5dedea781eae13781e453bec"
+            };
 
-  // IMPORTANT: DRM ClearKey
-  player.configure({
-    drm: {
-      clearKeys: {
-        "400131994b445d8c8817202248760fda": "2d56cb6f07a75b9aff165d534ae2bfc4"
-      }
-    }
-  });
+            player = new shaka.Player();
+            
+            // CORS Handle karne ke liye Request Filter
+            player.getNetworkingEngine().registerRequestFilter((type, request) => {
+                // JioTV headers add karna
+                request.headers['User-Agent'] = 'JioTV';
+                request.headers['Referer'] = 'https://www.jiotv.com/';
+                
+                // Agar URL me cookie parameter nahi hai toh header me add karein
+                if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST || type === shaka.net.NetworkingEngine.RequestType.SEGMENT) {
+                   // Note: Browser security ki wajah se header me 'Cookie' set karna aksar block hota hai.
+                   // Isliye URL me hi token parameters hona behtar hai.
+                }
+            });
 
-  // STREAM URL (cleaned)
-  const url = "https://jiotvmblive.cdn.jio.com/bpk-tv/Star_Sports_HD1_Hindi_BTS/output/index.mpd?cookie=__hdnea__=st=1775021504~exp=1775107904~acl=/*~hmac=045c4a0c3ea4d125ef8412eae95f5a5a23ad0fc701c8b9df5c0a2a4830454d87";
+            const uiConfig = {
+                controlPanelElements: ['time_and_duration', 'mute', 'volume', 'skip_backward_5', 'skip_forward_5', 'stream_stats', 'play_pause', 'spacer', 'quality', 'overflow_menu', 'fullscreen'],
+                addSeekBar: true
+            };
 
-  try {
-    await player.load(url);
-    console.log("✅ Video Playing");
-  } catch (err) {
-    console.error("Load failed:", err);
-  }
-}
+            ui = new shaka.ui.Overlay(player, videoContainer, videoElement);
+            await player.attach(videoElement);
+            ui.configure(uiConfig);
 
-document.addEventListener('DOMContentLoaded', init);
-</script></body>
+            // DRM Configuration
+            player.configure({
+                manifest: { dash: { ignoreMinBufferTime: true } },
+                drm: { clearKeys: streamInfo.clearKeys },
+                streaming: { bufferingGoal: 30 }
+            });
+
+            try {
+                // URL me cookie/token append kar rahe hain CORS aur Auth bypass ke liye
+                const finalUrl = streamInfo.streamUrl + "?" + encodeURIComponent(streamInfo.cookie);
+                await player.load(finalUrl);
+                console.log('Star Sports Loaded!');
+            } catch (error) {
+                console.error("Error loading stream:", error);
+            }
+        }
+
+        // --- CUSTOM BUTTONS & STATS REGISTRATION ---
+        class SkipForwardButton extends shaka.ui.Element {
+            constructor(parent, controls) {
+                super(parent, controls);
+                this.button_ = document.createElement('button');
+                this.button_.innerHTML = '<svg width="24" height="24" fill="white" viewBox="0 0 24 24"><path d="M10 18l6-6-6-6v12z"/></svg>';
+                this.parent.appendChild(this.button_);
+                this.eventManager.listen(this.button_, 'click', () => { this.video.currentTime += 5; });
+            }
+        }
+        shaka.ui.Controls.registerElement('skip_forward_5', { create: (root, ctrl) => new SkipForwardButton(root, ctrl) });
+
+        class SkipBackwardButton extends shaka.ui.Element {
+            constructor(parent, controls) {
+                super(parent, controls);
+                this.button_ = document.createElement('button');
+                this.button_.innerHTML = '<svg width="24" height="24" fill="white" viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6V6z"/></svg>';
+                this.parent.appendChild(this.button_);
+                this.eventManager.listen(this.button_, 'click', () => { this.video.currentTime -= 5; });
+            }
+        }
+        shaka.ui.Controls.registerElement('skip_backward_5', { create: (root, ctrl) => new SkipBackwardButton(root, ctrl) });
+
+        window.shakaSessionUsageMB = 0;
+        class StreamStatsElement extends shaka.ui.Element {
+            constructor(parent, controls) {
+                super(parent, controls);
+                this.container = document.createElement('div');
+                this.container.className = 'shaka-stream-stats';
+                controls.getControlsContainer().appendChild(this.container);
+                
+                const obs = new MutationObserver(() => {
+                    this.container.classList.toggle('visible', controls.getControlsContainer().getAttribute('shown') === 'true');
+                });
+                obs.observe(controls.getControlsContainer(), { attributes: true });
+
+                this.interval = setInterval(() => {
+                    const stats = controls.getPlayer().getStats();
+                    const active = controls.getPlayer().getVariantTracks().find(t => t.active);
+                    if (active) {
+                        this.container.innerHTML = `<span class="stat-res">${active.height}p</span><br><span class="stat-bw">${Math.round(active.bandwidth/1000)}kbps</span>`;
+                    }
+                }, 1000);
+            }
+        }
+        shaka.ui.Controls.registerElement('stream_stats', { create: (root, ctrl) => new StreamStatsElement(root, ctrl) });
+
+        initializePlayer();
+    </script>
+</body>
 </html>

@@ -1,154 +1,114 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
 <head>
-    <title>Shaka Player</title>
-    <meta name="referrer" content="no-referrer">
     <meta charset="UTF-8">
-    <meta name="color-scheme" content="light dark">
-    <meta name="theme-color" content="#000">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <script>
-        // Helper function polyfill for v 4.16.14 update
-        if (!Map.prototype.getOrInsertComputed) { Map.prototype.getOrInsertComputed = function (key, compute) { if (!this.has(key)) { const value = compute(); this.set(key, value); return value; } return this.get(key); }; }
-        if (!Map.prototype.getOrInsert) { Map.prototype.getOrInsert = function (key, value) { if (!this.has(key)) { this.set(key, value); return value; } return this.get(key); }; }
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/shaka-player@5.0.4/dist/shaka-player.ui.min.js" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@5.0.4/dist/controls.min.css">
-    <style type="text/css">
-        @font-face { font-family: Roboto, sans-serif, 'Noto Sans', Arial, sans-serif, TengwarTelcontar; }
-        * { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; padding: 0; background-color: #000; color: white; font-family: Arial, sans-serif; overflow: hidden; height: 100dvh; width: 100dvw; }
-        #app { width: 100dvw; height: 100dvh; display: flex; flex-direction: column; background: #000; overflow: hidden; }
-        #shakaplayer { position: relative; background-color: black; width: 100dvw; height: 100dvh; overflow: hidden; }
-        .shaka-video-container { position: relative; background-color: black; width: 100%; height: 100%; overflow: hidden; }
-        .shaka-video { width: 100%; height: 100%; object-fit: contain; overflow: hidden; }
-        .shaka-stream-stats { position: absolute; top: 10px; left: 10px; z-index: 30; background: rgba(0, 0, 0, 0.28); border-radius: 6px; padding: 6px 8px; font-size: 12px; color: rgba(255, 255, 255, 0.95); pointer-events: none; opacity: 0; transition: opacity 0.35s ease; }
-        .shaka-stream-stats.visible { opacity: 1; }
-        .stat-res { color: rgba(180, 220, 255, 0.95); font-weight: 700; }
-        .stat-bw { color: rgba(180, 255, 210, 0.95); font-weight: 700; }
-        .stat-data { color: rgba(255, 235, 180, 0.9); font-weight: 700; }
-        .shaka-bottom-controls { width: 96%; padding-bottom: 1%; z-index: 1; }
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced M3U8 Player</title>
+    <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet" />
+    <style>
+        body { background-color: #0f0f0f; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; }
+        .player-container { max-width: 900px; margin: 30px auto; background: #1a1a1a; padding: 15px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        video { width: 100%; border-radius: 8px; background: black; }
+        
+        .controls-row { margin-top: 15px; display: flex; justify-content: center; gap: 15px; align-items: center; flex-wrap: wrap; }
+        button { background: #e50914; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { background: #b20710; }
+        
+        select { background: #333; color: white; border: 1px solid #555; padding: 10px; border-radius: 5px; cursor: pointer; }
+        label { font-size: 14px; margin-right: 5px; }
     </style>
 </head>
 <body>
-    <div id="app">
-        <div id="shakaplayer">
-            <div class="shaka-video-container">
-                <video autoplay id="video" class="shaka-video"></video>
-            </div>
+
+<div class="player-container">
+    <h2 style="color: #e50914;">Premium Stream Player</h2>
+    
+    <video id="video" controls crossorigin="true"></video>
+
+    <div class="controls-row">
+        <button onclick="changeTime(-10)">-10s Backward</button>
+        <button onclick="changeTime(10)">+10s Forward</button>
+
+        <div>
+            <label for="qualitySelect">Quality:</label>
+            <select id="qualitySelect">
+                <option value="-1">Auto (Loading...)</option>
+            </select>
         </div>
     </div>
+</div>
 
-    <script>
-        let player;
-        let ui;
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
-        async function initializePlayer() {
-            const videoContainer = document.querySelector('.shaka-video-container');
-            const videoElement = document.getElementById('video');
+<script>
+    const video = document.getElementById('video');
+    const qualitySelect = document.getElementById('qualitySelect');
+    
+    // Aapka M3U8 Link
+    const videoSrc = 'PASTE_YOUR_LINK_HERE';
 
-            // --- AAPKA NAYA LINK AUR KEYS YAHA HAIN ---
-            const streamInfo = {
-                streamUrl: "https://jiotvpllive.cdn.jio.com/bpk-tv/Star_Sports_HD1_Hindi_BTS/output/index.mpd",
-                clearKeys: {
-                    "400131994b445d8c8817202248760fda": "2d56cb6f07a75b9aff165d534ae2bfc4"
-                },
-                token: "__hdnea__=st=1775131200~exp=1775152800~acl=/*~hmac=2dae0b4f0f0644367ed24ab627e46c0037f02e5e5dedea781eae13781e453bec",
-                streamPoster: "https://img10.hotstar.com/image/upload/f_auto,q_90,w_256/sources/r1/cms/prod/8704/1764056908704-a"
-            };
+    if (Hls.isSupported()) {
+        const hls = new Hls({
+            xhrSetup: function (xhr) {
+                xhr.withCredentials = true; // For Cookies
+            },
+            // Manual quality setting ke liye auto level switching off
+            autoStartLoad: true,
+            startLevel: -1 
+        });
 
-            videoElement.poster = streamInfo.streamPoster;
-            videoElement.muted = true;
-            videoElement.autoplay = true;
+        hls.loadSource(videoSrc);
+        hls.attachMedia(video);
 
-            player = new shaka.Player();
+        // Jab manifest load ho jaye, tab quality options bharein
+        hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+            const levels = hls.levels;
+            qualitySelect.innerHTML = ''; // Clear loading
+            
+            // Auto Option
+            let autoOption = document.createElement('option');
+            autoOption.text = "Auto";
+            autoOption.value = -1;
+            qualitySelect.appendChild(autoOption);
 
-            // --- CORS AUR HEADERS FIX YAHA HAI ---
-            player.getNetworkingEngine().registerRequestFilter(function(type, request) {
-                request.headers['User-Agent'] = 'JioTV';
-                request.headers['Referer'] = 'https://www.jiotv.com/';
+            // Available Qualities add karein
+            levels.forEach((level, index) => {
+                let option = document.createElement('option');
+                option.text = level.height + "p";
+                option.value = index;
+                qualitySelect.appendChild(option);
             });
+        });
 
-            const uiConfig = {
-                controlPanelElements: ['time_and_duration', 'mute', 'volume', 'skip_backward_5', 'skip_forward_5', 'stream_stats', 'play_pause', 'spacer', 'quality', 'overflow_menu', 'picture_in_picture', 'fullscreen'],
-                addSeekBar: true
-            };
-
-            ui = new shaka.ui.Overlay(player, videoContainer, videoElement);
-            await player.attach(videoElement);
-            ui.configure(uiConfig);
-
-            player.configure({
-                manifest: { dash: { ignoreMinBufferTime: true } },
-                drm: { clearKeys: streamInfo.clearKeys }
-            });
-
-            try {
-                // URL + Token ko combine karke load karna
-                const finalUrl = streamInfo.streamUrl + "?" + streamInfo.token;
-                await player.load(finalUrl);
-                console.log('Stream loaded successfully.');
-            } catch (error) {
-                console.error("Error loading stream:", error);
+        // Resolution Change Handler
+        qualitySelect.onchange = function() {
+            const selectedLevel = parseInt(this.value);
+            console.log("Setting quality to: " + selectedLevel);
+            
+            // Isse quality fix ho jayegi, net fast ho ya slow change nahi hogi
+            hls.currentLevel = selectedLevel; 
+            
+            if(selectedLevel !== -1) {
+                hls.loadLevel = selectedLevel; // Forced Lock
             }
-        }
+        };
 
-        // --- CUSTOM ELEMENTS (SKIP BUTTONS) ---
-        class SkipForwardButton extends shaka.ui.Element {
-            constructor(parent, controls) {
-                super(parent, controls);
-                this.button_ = document.createElement('button');
-                this.button_.innerHTML = '<svg class="shaka-ui-icon" viewBox="0 -960 960 960"><path fill="white" d="M480-80q-75 0-140.5-28.5t-114-77q-48.5-48.5-77-114T120-440q0-75 28.5-140.5t77-114q48.5-48.5 114-77T480-800h6l-62-62 56-58 160 160-160 160-56-58 62-62h-6q-117 0-198.5 81.5T200-440q0 117 81.5 198.5T480-160q117 0 198.5-81.5T760-440h80q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-80ZM380-320v-60h120v-40H380v-140h180v60H440v40h80q17 0 28.5 11.5T560-420v60q0 17-11.5 28.5T520-320H380Z"/></svg>';
-                this.parent.appendChild(this.button_);
-                this.eventManager.listen(this.button_, 'click', () => { this.video.currentTime += 5; });
+        hls.on(Hls.Events.ERROR, function (event, data) {
+            if (data.fatal) {
+                console.error("Fatal error:", data.type);
             }
-        }
-        shaka.ui.Controls.registerElement('skip_forward_5', { create: (root, ctrl) => new SkipForwardButton(root, ctrl) });
+        });
 
-        class SkipBackwardButton extends shaka.ui.Element {
-            constructor(parent, controls) {
-                super(parent, controls);
-                this.button_ = document.createElement('button');
-                this.button_.innerHTML = '<svg class="shaka-ui-icon" viewBox="0 -960 960 960"><path fill="white" d="M480-80q-75 0-140.5-28.5t-114-77q-48.5-48.5-77-114T120-440h80q0 117 81.5 198.5T480-160q117 0 198.5-81.5T760-440q0-117-81.5-198.5T480-720h-6l62 62-56 58-160-160 160-160 56 58-62 62h6q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-440q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-80ZM380-320v-60h120v-40H380v-140h180v60H440v40h80q17 0 28.5 11.5T560-420v60q0 17-11.5 28.5T520-320H380Z"/></svg>';
-                this.parent.appendChild(this.button_);
-                this.eventManager.listen(this.button_, 'click', () => { this.video.currentTime -= 5; });
-            }
-        }
-        shaka.ui.Controls.registerElement('skip_backward_5', { create: (root, ctrl) => new SkipBackwardButton(root, ctrl) });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // For Safari/iOS
+        video.src = videoSrc;
+    }
 
-        window.shakaSessionUsageMB = 0;
-        class StreamStatsElement extends shaka.ui.Element {
-            constructor(parent, controls) {
-                super(parent, controls);
-                this.container = document.createElement('div');
-                this.container.className = 'shaka-stream-stats';
-                controls.getControlsContainer().appendChild(this.container);
-                this.lastBytes = 0;
-                this.totalMB = window.shakaSessionUsageMB || 0;
-                
-                const obs = new MutationObserver(() => {
-                    this.container.classList.toggle('visible', controls.getControlsContainer().getAttribute('shown') === 'true');
-                });
-                obs.observe(controls.getControlsContainer(), { attributes: true, attributeFilter: ['shown'] });
+    // Forward/Backward function
+    function changeTime(seconds) {
+        video.currentTime += seconds;
+    }
+</script>
 
-                this.interval = setInterval(() => {
-                    const stats = controls.getPlayer().getStats();
-                    const active = controls.getPlayer().getVariantTracks().find(t => t.active);
-                    if (active) {
-                        let bytes = stats.bytesDownloaded || 0;
-                        if (bytes > this.lastBytes) {
-                            this.totalMB += (bytes - this.lastBytes) / (1024 * 1024);
-                            this.lastBytes = bytes;
-                            window.shakaSessionUsageMB = this.totalMB;
-                        }
-                        this.container.innerHTML = `<span class="stat-res">${active.height}p</span><br><span class="stat-bw">${Math.round(active.bandwidth/1000)}kbps</span><br><span class="stat-data">${this.totalMB.toFixed(1)} MB</span>`;
-                    }
-                }, 1000);
-            }
-        }
-        shaka.ui.Controls.registerElement('stream_stats', { create: (root, ctrl) => new StreamStatsElement(root, ctrl) });
-
-        initializePlayer();
-    </script>
 </body>
 </html>

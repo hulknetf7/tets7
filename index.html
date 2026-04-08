@@ -2,124 +2,142 @@
 <html lang="hi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic M3U8 Master Player</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <title>Shaka Player: Manual M3U8 & Cookies</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/controls.css">
     <style>
-        body { background-color: #0b0e11; color: #e9eaeb; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }
-        .wrapper { max-width: 1000px; margin: 0 auto; }
-        
-        /* Input Section Styling */
-        .input-panel { background: #1e2329; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        .input-group { margin-bottom: 15px; text-align: left; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #f0b90b; }
-        input, textarea { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #474d57; background: #2b3139; color: white; box-sizing: border-box; font-size: 14px; }
-        textarea { height: 80px; resize: vertical; }
-        
-        /* Buttons */
-        .btn-play { background: #f0b90b; color: black; border: none; padding: 12px 30px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px; transition: 0.2s; }
-        .btn-play:hover { background: #d9a508; }
-
-        /* Player Styling */
-        .video-section { position: relative; background: black; border-radius: 12px; overflow: hidden; display: none; }
-        video { width: 100%; aspect-ratio: 16/9; display: block; }
-        
-        .custom-controls { background: #1e2329; padding: 15px; display: flex; justify-content: center; gap: 10px; align-items: center; border-radius: 0 0 12px 12px; }
-        .control-btn { background: #474d57; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
-        select { background: #474d57; color: white; padding: 8px; border-radius: 4px; border: none; cursor: pointer; }
+        body { background: #0e1217; color: #fff; font-family: sans-serif; padding: 20px; }
+        .input-box { background: #1c2128; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #30363d; }
+        input, textarea { width: 100%; padding: 12px; margin: 8px 0; background: #0d1117; color: #58a6ff; border: 1px solid #30363d; border-radius: 5px; box-sizing: border-box; }
+        button { background: #238636; color: white; padding: 12px; border: none; border-radius: 5px; width: 100%; cursor: pointer; font-weight: bold; }
+        .video-container { width: 100%; max-width: 900px; margin: auto; }
+        video { width: 100%; border-radius: 8px; background: #000; }
+        .controls-extra { margin-top: 15px; display: flex; gap: 10px; justify-content: center; }
+        select { padding: 10px; background: #30363d; color: white; border: none; border-radius: 5px; }
     </style>
 </head>
 <body>
 
-<div class="wrapper">
-    <div class="input-panel">
-        <h2 style="margin-top:0; color:#f0b90b;">Stream Configurator</h2>
+<div class="video-container">
+    <div class="input-box">
+        <label>1. M3U8 Link:</label>
+        <input type="text" id="manifestUri" placeholder="Paste your .m3u8 link here...">
         
-        <div class="input-group">
-            <label>M3U8 Stream URL:</label>
-            <input type="text" id="m3u8Input" placeholder="https://example.com/master.m3u8...">
-        </div>
-
-        <div class="input-group">
-            <label>Cookie String:</label>
-            <textarea id="cookieInput" placeholder="CloudFront-Key-Pair-Id=...; hdntl=..."></textarea>
-        </div>
-
-        <button class="btn-play" onclick="loadPlayer()">PLAY STREAM</button>
+        <label>2. Cookie String:</label>
+        <textarea id="cookieInput" rows="3" placeholder="CloudFront-Key-Pair-Id=...; hdntl=..."></textarea>
+        
+        <button onclick="initPlayer()">LOAD & PLAY</button>
     </div>
 
-    <div id="playerContainer" class="video-section">
-        <video id="video" controls></video>
+    <div id="videoParent" style="display:none;">
+        <div data-shaka-player-container style="width:100%">
+            <video id="video" autoplay></video>
+        </div>
         
-        <div class="custom-controls">
-            <button class="control-btn" onclick="seek(-10)">-10s</button>
-            <button class="control-btn" onclick="seek(10)">+10s</button>
-            
-            <label style="margin-left:20px; color:white;">Quality:</label>
-            <select id="resSelector">
-                <option value="-1">Auto</option>
+        <div class="controls-extra">
+            <button onclick="step(-10)" style="width:80px;">-10s</button>
+            <button onclick="step(10)" style="width:80px;">+10s</button>
+            <select id="resSelect">
+                <option value="auto">Auto Quality</option>
             </select>
         </div>
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/shaka-player.compiled.debug.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/controls.js"></script>
+
 <script>
-    let hls = new Hls();
+    let player;
+    let video;
 
-    function loadPlayer() {
-        const m3u8Url = document.getElementById('m3u8Input').value;
-        const cookieData = document.getElementById('cookieInput').value;
-        const video = document.getElementById('video');
-        const resSelector = document.getElementById('resSelector');
-        const playerDiv = document.getElementById('playerContainer');
+    async function initPlayer() {
+        const manifestUri = document.getElementById('manifestUri').value;
+        const cookieStr = document.getElementById('cookieInput').value;
+        video = document.getElementById('video');
+        const resSelect = document.getElementById('resSelect');
 
-        if (!m3u8Url) {
-            alert("Bhai, kam se kam M3U8 link toh daalo!");
+        if (!manifestUri) return alert("Link missing!");
+
+        document.getElementById('videoParent').style.display = 'block';
+
+        // 1. Install polyfills
+        shaka.polyfill.installAll();
+
+        // 2. Check browser support
+        if (!shaka.Player.isBrowserSupported()) {
+            alert('Browser not supported!');
             return;
         }
 
-        // Show Player
-        playerDiv.style.display = 'block';
+        // 3. Create Player instance
+        player = new shaka.Player(video);
 
-        if (Hls.isSupported()) {
-            // Destroy previous instance if any
-            hls.destroy();
-            hls = new Hls({
-                xhrSetup: function(xhr) {
-                    xhr.withCredentials = true; // Taaki cookies bhej sake
+        // 4. Configure Cookies (withCredentials)
+        player.configure({
+            streaming: {
+                bufferingGoal: 30,
+            },
+            manifest: {
+                dash: {
+                    xhrWithCredentials: true
+                },
+                hls: {
+                    xhrWithCredentials: true
                 }
-            });
+            }
+        });
 
-            hls.loadSource(m3u8Url);
-            hls.attachMedia(video);
+        // Add cookies to headers for every request
+        player.getNetworkingEngine().registerRequestFilter((type, request) => {
+            request.allowCrossSiteCredentials = true;
+            // Shaka automatically sends cookies if xhrWithCredentials is true 
+            // and the domain matches.
+        });
 
-            hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                // Resolution Selector Fill Karna
-                resSelector.innerHTML = '<option value="-1">Auto</option>';
-                hls.levels.forEach((level, index) => {
-                    const opt = document.createElement('option');
-                    opt.value = index;
-                    opt.innerHTML = level.height + "p";
-                    resSelector.appendChild(opt);
-                });
-                video.play();
-            });
-
-            // Manual Resolution Lock (Network slow ho phir bhi change nahi hoga)
-            resSelector.onchange = function() {
-                const levelIndex = parseInt(this.value);
-                hls.currentLevel = levelIndex;
-                hls.loadLevel = levelIndex; // Force lock
-                console.log("Quality Locked to: " + levelIndex);
-            };
-
-        } else {
-            alert("Aapka browser HLS support nahi karta.");
+        try {
+            await player.load(manifestUri);
+            console.log('Video loaded successfully!');
+            
+            // Populate Resolutions
+            updateResolutionOptions();
+        } catch (e) {
+            console.error('Error loading video', e);
+            alert("Error: Link ya Cookie invalid hai. Check Console.");
         }
     }
 
-    function seek(seconds) {
-        document.getElementById('video').currentTime += seconds;
+    function updateResolutionOptions() {
+        const resSelect = document.getElementById('resSelect');
+        const tracks = player.getVariantTracks();
+        
+        // Remove old options
+        resSelect.innerHTML = '<option value="auto">Auto Quality</option>';
+
+        // Add available resolutions
+        tracks.forEach(track => {
+            if (track.height) {
+                let opt = document.createElement('option');
+                opt.value = track.id;
+                opt.text = track.height + 'p (' + Math.round(track.bandwidth / 1000) + ' kbps)';
+                resSelect.appendChild(opt);
+            }
+        });
+
+        resSelect.onchange = () => {
+            if (resSelect.value === 'auto') {
+                // Auto mode on
+                player.configure({ abr: { enabled: true } });
+            } else {
+                // Manual Lock (ABR Off)
+                player.configure({ abr: { enabled: false } });
+                const selectedTrack = tracks.find(t => t.id == resSelect.value);
+                player.selectVariantTrack(selectedTrack, true); // true = force clear buffer
+            }
+        };
+    }
+
+    function step(seconds) {
+        video.currentTime += seconds;
     }
 </script>
 

@@ -3,110 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced M3U8 Player</title>
-    <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet" />
+    <title>Dynamic M3U8 Master Player</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        body { background-color: #0f0f0f; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; }
-        .player-container { max-width: 900px; margin: 30px auto; background: #1a1a1a; padding: 15px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        video { width: 100%; border-radius: 8px; background: black; }
+        body { background-color: #0b0e11; color: #e9eaeb; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }
+        .wrapper { max-width: 1000px; margin: 0 auto; }
         
-        .controls-row { margin-top: 15px; display: flex; justify-content: center; gap: 15px; align-items: center; flex-wrap: wrap; }
-        button { background: #e50914; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        button:hover { background: #b20710; }
+        /* Input Section Styling */
+        .input-panel { background: #1e2329; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .input-group { margin-bottom: 15px; text-align: left; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #f0b90b; }
+        input, textarea { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #474d57; background: #2b3139; color: white; box-sizing: border-box; font-size: 14px; }
+        textarea { height: 80px; resize: vertical; }
         
-        select { background: #333; color: white; border: 1px solid #555; padding: 10px; border-radius: 5px; cursor: pointer; }
-        label { font-size: 14px; margin-right: 5px; }
+        /* Buttons */
+        .btn-play { background: #f0b90b; color: black; border: none; padding: 12px 30px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px; transition: 0.2s; }
+        .btn-play:hover { background: #d9a508; }
+
+        /* Player Styling */
+        .video-section { position: relative; background: black; border-radius: 12px; overflow: hidden; display: none; }
+        video { width: 100%; aspect-ratio: 16/9; display: block; }
+        
+        .custom-controls { background: #1e2329; padding: 15px; display: flex; justify-content: center; gap: 10px; align-items: center; border-radius: 0 0 12px 12px; }
+        .control-btn { background: #474d57; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+        select { background: #474d57; color: white; padding: 8px; border-radius: 4px; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div class="player-container">
-    <h2 style="color: #e50914;">Premium Stream Player</h2>
-    
-    <video id="video" controls crossorigin="true"></video>
+<div class="wrapper">
+    <div class="input-panel">
+        <h2 style="margin-top:0; color:#f0b90b;">Stream Configurator</h2>
+        
+        <div class="input-group">
+            <label>M3U8 Stream URL:</label>
+            <input type="text" id="m3u8Input" placeholder="https://example.com/master.m3u8...">
+        </div>
 
-    <div class="controls-row">
-        <button onclick="changeTime(-10)">-10s Backward</button>
-        <button onclick="changeTime(10)">+10s Forward</button>
+        <div class="input-group">
+            <label>Cookie String:</label>
+            <textarea id="cookieInput" placeholder="CloudFront-Key-Pair-Id=...; hdntl=..."></textarea>
+        </div>
 
-        <div>
-            <label for="qualitySelect">Quality:</label>
-            <select id="qualitySelect">
-                <option value="-1">Auto (Loading...)</option>
+        <button class="btn-play" onclick="loadPlayer()">PLAY STREAM</button>
+    </div>
+
+    <div id="playerContainer" class="video-section">
+        <video id="video" controls></video>
+        
+        <div class="custom-controls">
+            <button class="control-btn" onclick="seek(-10)">-10s</button>
+            <button class="control-btn" onclick="seek(10)">+10s</button>
+            
+            <label style="margin-left:20px; color:white;">Quality:</label>
+            <select id="resSelector">
+                <option value="-1">Auto</option>
             </select>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
 <script>
-    const video = document.getElementById('video');
-    const qualitySelect = document.getElementById('qualitySelect');
-    
-    // Aapka M3U8 Link
-    const videoSrc = 'PASTE_YOUR_LINK_HERE';
+    let hls = new Hls();
 
-    if (Hls.isSupported()) {
-        const hls = new Hls({
-            xhrSetup: function (xhr) {
-                xhr.withCredentials = true; // For Cookies
-            },
-            // Manual quality setting ke liye auto level switching off
-            autoStartLoad: true,
-            startLevel: -1 
-        });
+    function loadPlayer() {
+        const m3u8Url = document.getElementById('m3u8Input').value;
+        const cookieData = document.getElementById('cookieInput').value;
+        const video = document.getElementById('video');
+        const resSelector = document.getElementById('resSelector');
+        const playerDiv = document.getElementById('playerContainer');
 
-        hls.loadSource(videoSrc);
-        hls.attachMedia(video);
+        if (!m3u8Url) {
+            alert("Bhai, kam se kam M3U8 link toh daalo!");
+            return;
+        }
 
-        // Jab manifest load ho jaye, tab quality options bharein
-        hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
-            const levels = hls.levels;
-            qualitySelect.innerHTML = ''; // Clear loading
-            
-            // Auto Option
-            let autoOption = document.createElement('option');
-            autoOption.text = "Auto";
-            autoOption.value = -1;
-            qualitySelect.appendChild(autoOption);
+        // Show Player
+        playerDiv.style.display = 'block';
 
-            // Available Qualities add karein
-            levels.forEach((level, index) => {
-                let option = document.createElement('option');
-                option.text = level.height + "p";
-                option.value = index;
-                qualitySelect.appendChild(option);
+        if (Hls.isSupported()) {
+            // Destroy previous instance if any
+            hls.destroy();
+            hls = new Hls({
+                xhrSetup: function(xhr) {
+                    xhr.withCredentials = true; // Taaki cookies bhej sake
+                }
             });
-        });
 
-        // Resolution Change Handler
-        qualitySelect.onchange = function() {
-            const selectedLevel = parseInt(this.value);
-            console.log("Setting quality to: " + selectedLevel);
-            
-            // Isse quality fix ho jayegi, net fast ho ya slow change nahi hogi
-            hls.currentLevel = selectedLevel; 
-            
-            if(selectedLevel !== -1) {
-                hls.loadLevel = selectedLevel; // Forced Lock
-            }
-        };
+            hls.loadSource(m3u8Url);
+            hls.attachMedia(video);
 
-        hls.on(Hls.Events.ERROR, function (event, data) {
-            if (data.fatal) {
-                console.error("Fatal error:", data.type);
-            }
-        });
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                // Resolution Selector Fill Karna
+                resSelector.innerHTML = '<option value="-1">Auto</option>';
+                hls.levels.forEach((level, index) => {
+                    const opt = document.createElement('option');
+                    opt.value = index;
+                    opt.innerHTML = level.height + "p";
+                    resSelector.appendChild(opt);
+                });
+                video.play();
+            });
 
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // For Safari/iOS
-        video.src = videoSrc;
+            // Manual Resolution Lock (Network slow ho phir bhi change nahi hoga)
+            resSelector.onchange = function() {
+                const levelIndex = parseInt(this.value);
+                hls.currentLevel = levelIndex;
+                hls.loadLevel = levelIndex; // Force lock
+                console.log("Quality Locked to: " + levelIndex);
+            };
+
+        } else {
+            alert("Aapka browser HLS support nahi karta.");
+        }
     }
 
-    // Forward/Backward function
-    function changeTime(seconds) {
-        video.currentTime += seconds;
+    function seek(seconds) {
+        document.getElementById('video').currentTime += seconds;
     }
 </script>
 

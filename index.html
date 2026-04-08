@@ -2,144 +2,108 @@
 <html lang="hi">
 <head>
     <meta charset="UTF-8">
-    <title>Shaka Player: Manual M3U8 & Cookies</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotstar Shaka Player - Live</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/controls.css">
     <style>
-        body { background: #0e1217; color: #fff; font-family: sans-serif; padding: 20px; }
-        .input-box { background: #1c2128; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #30363d; }
-        input, textarea { width: 100%; padding: 12px; margin: 8px 0; background: #0d1117; color: #58a6ff; border: 1px solid #30363d; border-radius: 5px; box-sizing: border-box; }
-        button { background: #238636; color: white; padding: 12px; border: none; border-radius: 5px; width: 100%; cursor: pointer; font-weight: bold; }
-        .video-container { width: 100%; max-width: 900px; margin: auto; }
-        video { width: 100%; border-radius: 8px; background: #000; }
-        .controls-extra { margin-top: 15px; display: flex; gap: 10px; justify-content: center; }
-        select { padding: 10px; background: #30363d; color: white; border: none; border-radius: 5px; }
+        body { background: #000; color: #fff; font-family: sans-serif; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        .player-wrapper { width: 95%; max-width: 900px; border: 1px solid #333; box-shadow: 0 0 20px rgba(255,255,255,0.1); }
+        video { width: 100%; height: auto; }
+        .custom-controls { background: #111; padding: 10px; width: 100%; max-width: 900px; display: flex; justify-content: center; gap: 15px; align-items: center; box-sizing: border-box; }
+        select, button { background: #333; color: #fff; border: 1px solid #555; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #444; }
+        h2 { color: #f0b90b; margin-bottom: 10px; font-size: 18px; }
     </style>
 </head>
 <body>
 
-<div class="video-container">
-    <div class="input-box">
-        <label>1. M3U8 Link:</label>
-        <input type="text" id="manifestUri" placeholder="Paste your .m3u8 link here...">
-        
-        <label>2. Cookie String:</label>
-        <textarea id="cookieInput" rows="3" placeholder="CloudFront-Key-Pair-Id=...; hdntl=..."></textarea>
-        
-        <button onclick="initPlayer()">LOAD & PLAY</button>
-    </div>
+    <h2>IPL Live - Shaka Player</h2>
 
-    <div id="videoParent" style="display:none;">
-        <div data-shaka-player-container style="width:100%">
-            <video id="video" autoplay></video>
-        </div>
-        
-        <div class="controls-extra">
-            <button onclick="step(-10)" style="width:80px;">-10s</button>
-            <button onclick="step(10)" style="width:80px;">+10s</button>
-            <select id="resSelect">
-                <option value="auto">Auto Quality</option>
-            </select>
+    <div class="player-wrapper">
+        <div id="video-container" data-shaka-player-container>
+            <video id="video" data-shaka-player-video autoplay></video>
         </div>
     </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/shaka-player.compiled.debug.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/controls.js"></script>
-
-<script>
-    let player;
-    let video;
-
-    async function initPlayer() {
-        const manifestUri = document.getElementById('manifestUri').value;
-        const cookieStr = document.getElementById('cookieInput').value;
-        video = document.getElementById('video');
-        const resSelect = document.getElementById('resSelect');
-
-        if (!manifestUri) return alert("Link missing!");
-
-        document.getElementById('videoParent').style.display = 'block';
-
-        // 1. Install polyfills
-        shaka.polyfill.installAll();
-
-        // 2. Check browser support
-        if (!shaka.Player.isBrowserSupported()) {
-            alert('Browser not supported!');
-            return;
-        }
-
-        // 3. Create Player instance
-        player = new shaka.Player(video);
-
-        // 4. Configure Cookies (withCredentials)
-        player.configure({
-            streaming: {
-                bufferingGoal: 30,
-            },
-            manifest: {
-                dash: {
-                    xhrWithCredentials: true
-                },
-                hls: {
-                    xhrWithCredentials: true
-                }
-            }
-        });
-
-        // Add cookies to headers for every request
-        player.getNetworkingEngine().registerRequestFilter((type, request) => {
-            request.allowCrossSiteCredentials = true;
-            // Shaka automatically sends cookies if xhrWithCredentials is true 
-            // and the domain matches.
-        });
-
-        try {
-            await player.load(manifestUri);
-            console.log('Video loaded successfully!');
-            
-            // Populate Resolutions
-            updateResolutionOptions();
-        } catch (e) {
-            console.error('Error loading video', e);
-            alert("Error: Link ya Cookie invalid hai. Check Console.");
-        }
-    }
-
-    function updateResolutionOptions() {
-        const resSelect = document.getElementById('resSelect');
-        const tracks = player.getVariantTracks();
+    <div class="custom-controls">
+        <button onclick="seek(-10)">-10s</button>
+        <button onclick="seek(10)">+10s</button>
         
-        // Remove old options
-        resSelect.innerHTML = '<option value="auto">Auto Quality</option>';
+        <label>Quality:</label>
+        <select id="quality-selector">
+            <option value="auto">Auto (Adaptive)</option>
+        </select>
+    </div>
 
-        // Add available resolutions
-        tracks.forEach(track => {
-            if (track.height) {
-                let opt = document.createElement('option');
-                opt.value = track.id;
-                opt.text = track.height + 'p (' + Math.round(track.bandwidth / 1000) + ' kbps)';
-                resSelect.appendChild(opt);
+    <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/shaka-player.compiled.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/controls.js"></script>
+
+    <script>
+        // Aapka Data Direct Fit Kar Diya Hai
+        const manifestUri = 'https://live11p-ssai-akt-mum.cdn.hotstar.com/cmaf/live/2108387/inallow-ipl-2026/eng/1540065721/15mindvrm0136f678d97b4b40708bb62aaae59a571b08april2026/master_ap_stereo.m3u8?a=s&asn_id=tffsz&content_id=1540065721&language=english&layer=master&media_codec=codec%3Dh265%3Adr%3Dsdr&playback_host=live11p-pristine-akt.cdn.hotstar.com&playback_proto=http&random=inallow-ipl-2026&si_match_id=721161&hdnea=exp=1775667505~acl=%2fcmaf%2flive%2f2108387%2finallow-ipl-2026%2feng%2f1540065721%2f15mindvrm0136f678d97b4b40708bb62aaae59a571b08april2026%2fmaster_ap%2a~data=ip%3dCxlRVvU1BrB1Mp0Aal1C02uPIuqQ3ozFqC0mQNheHTN7bOOyL8YKcBs-userid%3d1d1w5wHFrbj6nx97drgJMeIBlhGdwB4bFRmvbeKt514E-did%3dyw2HpQqtQkgoLF6GeyiXxcEbrIoqHyAhQSvUhqFgoSlo-cc%3din-de%3d1-pl%3dwebos-ap%3d26.02.27.3-ut%3dfree-fpassv2-chids%3do7IWU4M1-ttl%3d1800-type%3dpaid-~hmac=89b98dbaeffa9157fb54526e99ea2c63f4047855e453600d4224693621cf93bb&ttl=1800&type=paid&acl=/cmaf/live/2108387/inallow-ipl-2026/eng/1540065721/15mindvrm0136f678d97b4b40708bb62aaae59a571b08april2026/master_ap';
+        const cookieString = 'CloudFront-Key-Pair-Id=APKAJC3ILMJXG4AINKJA; CloudFront-Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiKjovLypsaXZlLXNzYWktY2YtbXVtLWFjZS5jZG4uaG90c3Rhci5jb20vY21hZi9saXZlLzIxMDgzODcvaW5hbGxvdy1pcGwtMjAyNi9lbmcvMTU0MDA2NTcyMS8xNW1pbmR2cm0wMTM2ZjY3OGQ5N2I0YjQwNzA4YmI2MmFhYWU1OWE1NzFiMDhhcHJpbDIwMjYvKiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTc3NTc1MzA4Nn19fV19; CloudFront-Signature=CUlhQ--qNxZtKG-gv9fifR3ZG8SeiUbm5mwd8cFacfJmTQOxLqI8imGvDwNvXJuuzgA6Chki-1GI8kXgvoDkKugNHvGEfAfmNQjnXbZoWtDDe~UXozClntPMk3vVjckp5d22aznZ8W0vQQwtFSQxkKVIxiWhrr4qoHtGXV3XEytPttvb5CE999dYmQYQQbjM27BMtsexU0IPifVtHIAgsK-rZs9Un78e6Q21CUyqMIQoKjHysljVv3GqEI9RblxTqO~M8frNUFZlt6rIiswb0Mn11hPh-G732ye-M5GySqGGaBlW4QwhIcBOtViXN8NNtUl58pldskz0Pyb19Yhxng__; hdntl=exp=1775668486~raf=1775667286~acl=/cmaf/live/2108387/inallow-ipl-2026/eng/1540065721/15mindvrm0136f678d97b4b40708bb62aaae59a571b08april2026/master_ap~ttl=1800~type=paid~data=ip=CxlRVvU1BrB1Mp0Aal1C02uPIuqQ3ozFqC0mQNheHTN7bOOyL8YKcBs-userid=1d1w5wHFrbj6nx97drgJMeIBlhGdwB4bFRmvbeKt514E-did=yw2HpQqtQkgoLF6GeyiXxcEbrIoqHyAhQSvUhqFgoSlo-cc=in-de=1-pl=webos-ap=26.02.27.3-ut=free-fpassv2-chids=o7IWU4M1-rd=19596-cd=2004-ad=21600-ce=1775666686-~hmac=d995db6b08b6daabcb58dac7256ed2af727072718a6d1e372a9de344c5ee1669';
+
+        async function initApp() {
+            shaka.polyfill.installAll();
+            if (!shaka.Player.isBrowserSupported()) {
+                alert('Browser not supported!');
+                return;
             }
-        });
 
-        resSelect.onchange = () => {
-            if (resSelect.value === 'auto') {
-                // Auto mode on
-                player.configure({ abr: { enabled: true } });
-            } else {
-                // Manual Lock (ABR Off)
-                player.configure({ abr: { enabled: false } });
-                const selectedTrack = tracks.find(t => t.id == resSelect.value);
-                player.selectVariantTrack(selectedTrack, true); // true = force clear buffer
+            const video = document.getElementById('video');
+            const ui = video['ui'];
+            const player = new shaka.Player(video);
+            const selector = document.getElementById('quality-selector');
+
+            // Header/Cookie Filter
+            player.getNetworkingEngine().registerRequestFilter((type, request) => {
+                request.allowCrossSiteCredentials = true;
+                request.headers['Cookie'] = cookieString;
+            });
+
+            // Config for ABR and M3U8
+            player.configure({
+                streaming: { bufferingGoal: 30 },
+                manifest: { hls: { xhrWithCredentials: true } }
+            });
+
+            try {
+                await player.load(manifestUri);
+                console.log('Video Loaded!');
+
+                // Resolution List
+                const tracks = player.getVariantTracks().sort((a,b) => b.height - a.height);
+                tracks.forEach(track => {
+                    if (track.height) {
+                        const opt = document.createElement('option');
+                        opt.value = track.id;
+                        opt.text = track.height + "p";
+                        selector.appendChild(opt);
+                    }
+                });
+
+                // Manual Resolution Change
+                selector.addEventListener('change', () => {
+                    if (selector.value === 'auto') {
+                        player.configure({ abr: { enabled: true } });
+                    } else {
+                        player.configure({ abr: { enabled: false } });
+                        const selectedTrack = tracks.find(t => t.id == selector.value);
+                        player.selectVariantTrack(selectedTrack, true);
+                    }
+                });
+
+            } catch (e) {
+                console.error('Load Error:', e);
             }
-        };
-    }
+        }
 
-    function step(seconds) {
-        video.currentTime += seconds;
-    }
-</script>
+        function seek(sec) {
+            document.getElementById('video').currentTime += sec;
+        }
 
+        document.addEventListener('shaka-ui-loaded', initApp);
+        document.addEventListener('shaka-ui-load-failed', () => alert('UI Load Failed'));
+    </script>
 </body>
 </html>
